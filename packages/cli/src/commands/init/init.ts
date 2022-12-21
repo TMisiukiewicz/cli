@@ -32,6 +32,7 @@ type Options = {
   title?: string;
   skipInstall?: boolean;
   version?: string;
+  packager?: 'yarn' | 'npm' | 'pnpm';
 };
 
 interface TemplateOptions {
@@ -41,6 +42,7 @@ interface TemplateOptions {
   directory: string;
   projectTitle?: string;
   skipInstall?: boolean;
+  packager?: 'yarn' | 'npm' | 'pnpm';
 }
 
 function doesDirectoryExist(dir: string) {
@@ -79,10 +81,10 @@ function getTemplateName(cwd: string) {
 async function createFromTemplate({
   projectName,
   templateUri,
-  npm,
   directory,
   projectTitle,
   skipInstall,
+  packager,
 }: TemplateOptions) {
   logger.debug('Initializing new project');
   logger.log(banner);
@@ -97,7 +99,7 @@ async function createFromTemplate({
   try {
     loader.start();
 
-    await installTemplatePackage(templateUri, templateSourceDir, npm);
+    await installTemplatePackage(templateUri, templateSourceDir, packager);
 
     loader.succeed();
     loader.start('Copying template');
@@ -133,7 +135,7 @@ async function createFromTemplate({
 
     if (!skipInstall) {
       await installDependencies({
-        npm,
+        packager,
         loader,
         root: projectDirectory,
         directory,
@@ -151,19 +153,19 @@ async function createFromTemplate({
 
 async function installDependencies({
   directory,
-  npm,
   loader,
   root,
+  packager,
 }: {
   directory: string;
-  npm?: boolean;
   loader: Loader;
   root: string;
+  packager?: 'yarn' | 'npm' | 'pnpm';
 }) {
   loader.start('Installing dependencies');
 
   await PackageManager.installAll({
-    preferYarn: !npm,
+    packager,
     silent: true,
     root,
   });
@@ -200,10 +202,10 @@ async function createProject(
   return createFromTemplate({
     projectName,
     templateUri,
-    npm: options.npm,
     directory,
     projectTitle: options.title,
     skipInstall: options.skipInstall,
+    packager: options.packager,
   });
 }
 
@@ -212,6 +214,11 @@ export default (async function initialize(
   options: Options,
 ) {
   validateProjectName(projectName);
+
+  if (options.npm) {
+    logger.info('Parameter --npm is deprecated. Using --packager=npm instead.');
+    options.packager = 'npm';
+  }
 
   if (!!options.template && !!options.version) {
     throw new TemplateAndVersionError(options.template);

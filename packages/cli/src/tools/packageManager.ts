@@ -1,9 +1,8 @@
 import execa from 'execa';
 import {logger} from '@react-native-community/cli-tools';
-import {getYarnVersionIfAvailable, isProjectUsingYarn} from './yarn';
 
 type Options = {
-  preferYarn?: boolean;
+  packager?: keyof typeof packageManagers;
   silent?: boolean;
   root: string;
 };
@@ -23,6 +22,13 @@ const packageManagers = {
     uninstall: ['uninstall', '--save'],
     installAll: ['install'],
   },
+  pnpm: {
+    init: ['init'],
+    install: ['add', '-P'],
+    installDev: ['add', '-D'],
+    uninstall: ['remove'],
+    installAll: ['install'],
+  },
 };
 
 function configurePackageManager(
@@ -30,7 +36,7 @@ function configurePackageManager(
   action: 'init' | 'install' | 'installDev' | 'installAll' | 'uninstall',
   options: Options,
 ) {
-  const pm = shouldUseYarn(options) ? 'yarn' : 'npm';
+  const pm = options.packager || 'yarn';
   const [executable, ...flags] = packageManagers[pm][action];
   const args = [executable, ...flags, ...packageNames];
   return executeCommand(pm, args, options);
@@ -45,14 +51,6 @@ function executeCommand(
     stdio: options.silent && !logger.isVerbose() ? 'pipe' : 'inherit',
     cwd: options.root,
   });
-}
-
-function shouldUseYarn(options: Options) {
-  if (options && options.preferYarn !== undefined) {
-    return options.preferYarn && getYarnVersionIfAvailable();
-  }
-
-  return isProjectUsingYarn(options.root) && getYarnVersionIfAvailable();
 }
 
 export function init(options: Options) {
