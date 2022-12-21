@@ -170,7 +170,7 @@ async function installDependencies({
     root,
   });
 
-  if (process.platform === 'darwin') {
+  if (process.platform === 'darwin' && packager !== 'pnpm') {
     await installPods({directory, loader});
   }
 
