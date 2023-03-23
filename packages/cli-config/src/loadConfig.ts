@@ -72,6 +72,8 @@ function loadConfig(projectRoot: string = findProjectRoot()): Config {
     commands: userConfig.commands,
     healthChecks: [],
     platforms: userConfig.platforms,
+    //@ts-ignore testing react-native.config.js capabilities
+    mods: userConfig.mods,
     get project() {
       if (lazyProject) {
         return lazyProject;
