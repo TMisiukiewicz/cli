@@ -125,6 +125,7 @@ export interface Config {
   commands: Command[];
   // @todo this should be removed: https://github.com/react-native-community/cli/issues/1261
   healthChecks: [];
+  mods: any;
 }
 
 export type UserConfig = Omit<Config, 'root'> & {

@@ -7,6 +7,7 @@
     "access": "public"
   },
   "dependencies": {
+    "@expo/config-plugins": "^6.0.1",
     "appdirsjs": "^1.2.4",
     "chalk": "^4.1.2",
     "find-up": "^5.0.0",
@@ -14,8 +15,7 @@
     "node-fetch": "^2.6.0",
     "open": "^6.2.0",
     "ora": "^5.4.1",
-    "semver": "^6.3.0",
-    "shell-quote": "^1.7.3"
+    "semver": "^6.3.0"
   },
   "devDependencies": {
     "@react-native-community/cli-types": "^11.0.0",
