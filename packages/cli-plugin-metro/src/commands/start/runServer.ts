@@ -126,7 +126,7 @@ async function runServer(_argv: Array<string>, ctx: Config, args: Args) {
 
   await version.logIfUpdateAvailable(ctx.root);
 
-  configPlugins.runConfigPlugins();
+  configPlugins.runConfigPlugins({platforms: ['android', 'ios']});
 }
 
 function getReporterImpl(customLogReporterPath: string | undefined) {
