@@ -20,6 +20,7 @@ function readConfigFile(
   } catch (error) {
     // @ts-ignore
     error.isConfigError = true;
+    //@ts-ignore
     error.message = `Error reading Expo config at ${configFile}:\n\n${error.message}`;
     throw error;
   }
