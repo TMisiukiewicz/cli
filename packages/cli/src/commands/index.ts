@@ -6,6 +6,7 @@ import {commands as metroCommands} from '@react-native-community/cli-plugin-metr
 import profileHermes from '@react-native-community/cli-hermes';
 import upgrade from './upgrade/upgrade';
 import init from './init';
+import prebuild from './prebuild';
 
 export const projectCommands = [
   ...metroCommands,
@@ -13,6 +14,7 @@ export const projectCommands = [
   cleanCommands.clean,
   doctorCommands.info,
   upgrade,
+  prebuild,
   profileHermes,
 ] as Command[];
 

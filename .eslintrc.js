@@ -1,5 +1,9 @@
 module.exports = {
-  extends: ['@react-native-community', 'plugin:import/errors'],
+  extends: [
+    '@react-native-community',
+    'plugin:import/errors',
+    'plugin:import/typescript',
+  ],
   env: {
     node: true,
   },

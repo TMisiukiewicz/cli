@@ -24,6 +24,8 @@
     "testEnvironment": "node"
   },
   "dependencies": {
+    "@expo/config": "^8.0.2",
+    "@expo/config-plugins": "^6.0.1",
     "@react-native-community/cli-clean": "^11.0.1",
     "@react-native-community/cli-config": "^11.0.1",
     "@react-native-community/cli-debugger-ui": "11.0.0-alpha.2",
