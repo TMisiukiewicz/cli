@@ -7,6 +7,7 @@ export default (async function prebuild() {
   const {root} = loadConfig();
   let {exp: config} = getConfig(root, {
     skipSDKVersionRequirement: true,
+    isModdedConfig: true,
   });
 
   if (!config.ios) {
