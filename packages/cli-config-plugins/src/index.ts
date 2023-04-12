@@ -1,6 +1,6 @@
 import generate from './commands/generate';
 
 export * from './tools';
-export * from './utils';
+export {generateNativeProjects} from './commands/generate/generate';
 
 export const commands = [generate];

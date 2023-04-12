@@ -1,7 +1,7 @@
-import generateAsync from './generate';
+import generate from './generate';
 
 export default {
-  func: generateAsync,
+  func: generate,
   name: 'generate',
   description: 'generates native projects for your app',
   options: [],

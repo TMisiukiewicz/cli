@@ -151,22 +151,24 @@ async function createFromTemplate({
     }
 
     if (withConfigPlugins) {
-      if (!skipInstall) {
-        loader.start('Adjusting project to use with config plugins');
-        if (doesDirectoryExist(path.join(projectDirectory, 'ios'))) {
-          fs.removeSync(path.join(projectDirectory, 'ios'));
-        }
-        if (doesDirectoryExist(path.join(projectDirectory, 'android'))) {
-          fs.removeSync(path.join(projectDirectory, 'android'));
-        }
-
-        await updateGitignore(projectDirectory);
-        loader.succeed();
-      } else {
-        logger.warn(
-          'Skipping config plugins setup (--skip-install flag is used)',
-        );
+      loader.start('Adjusting project to use with config plugins');
+      if (doesDirectoryExist(path.join(projectDirectory, 'ios'))) {
+        fs.removeSync(path.join(projectDirectory, 'ios'));
       }
+      if (doesDirectoryExist(path.join(projectDirectory, 'android'))) {
+        fs.removeSync(path.join(projectDirectory, 'android'));
+      }
+
+      await updateGitignore(projectDirectory);
+      loader.succeed();
+
+      await installDependencies({
+        npm,
+        loader,
+        root: projectDirectory,
+        directory,
+        skipPods: true,
+      });
     }
   } catch (e) {
     loader.fail();
@@ -181,11 +183,13 @@ async function installDependencies({
   npm,
   loader,
   root,
+  skipPods,
 }: {
   directory: string;
   npm?: boolean;
   loader: Loader;
   root: string;
+  skipPods?: boolean;
 }) {
   loader.start('Installing dependencies');
 
@@ -195,7 +199,7 @@ async function installDependencies({
     root,
   });
 
-  if (process.platform === 'darwin') {
+  if (process.platform === 'darwin' && !skipPods) {
     await installPods({directory, loader});
   }
 
@@ -230,7 +234,7 @@ async function createProject(
     npm: options.npm,
     directory,
     projectTitle: options.title,
-    skipInstall: options.skipInstall,
+    skipInstall: options.withConfigPlugins ? true : options.skipInstall,
     packageName: options.packageName,
     withConfigPlugins: options.withConfigPlugins,
   });
