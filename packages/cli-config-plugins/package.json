@@ -1,0 +1,22 @@
+{
+  "name": "@react-native-community/cli-config-plugins",
+  "version": "12.0.0-alpha.2",
+  "license": "MIT",
+  "author": "Tomasz Misiukiewicz <tomasz.misiukiewicz@callstack.com>",
+  "main": "build/index.js",
+  "publishConfig": {
+    "access": "public"
+  },
+  "types": "build/index.d.ts",
+  "files": [
+    "build",
+    "!*.d.ts",
+    "!*.map"
+  ],
+  "homepage": "https://github.com/TMisiukiewicz/cli#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TMisiukiewicz/cli.git",
+    "directory": "packages/cli-config-plugins"
+  }
+}
