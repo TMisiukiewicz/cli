@@ -18,5 +18,9 @@
     "type": "git",
     "url": "git+https://github.com/TMisiukiewicz/cli.git",
     "directory": "packages/cli-config-plugins"
+  },
+  "dependencies": {
+    "@expo/config-plugins": "6.0.1",
+    "@expo/config-types": "48.0.0"
   }
 }

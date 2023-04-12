@@ -37,5 +37,9 @@ export default {
       description:
         'Inits a project with a custom package name (Android) and bundle ID (iOS), e.g. com.example.app',
     },
+    {
+      name: '--with-config-plugins',
+      description: 'Adds support for config plugins in the project',
+    },
   ],
 };

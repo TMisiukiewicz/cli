@@ -19,6 +19,7 @@ import {
 import {changePlaceholderInTemplate} from './editTemplate';
 import * as PackageManager from '../../tools/packageManager';
 import {installPods} from '@react-native-community/cli-doctor';
+import {modifyTemplate} from '@react-native-community/cli-config-plugins';
 import banner from './banner';
 import TemplateAndVersionError from './errors/TemplateAndVersionError';
 
@@ -33,6 +34,7 @@ type Options = {
   skipInstall?: boolean;
   version?: string;
   packageName?: string;
+  withConfigPlugins?: boolean;
 };
 
 interface TemplateOptions {
@@ -43,6 +45,7 @@ interface TemplateOptions {
   projectTitle?: string;
   skipInstall?: boolean;
   packageName?: string;
+  withConfigPlugins?: boolean;
 }
 
 function doesDirectoryExist(dir: string) {
@@ -86,6 +89,7 @@ async function createFromTemplate({
   projectTitle,
   skipInstall,
   packageName,
+  withConfigPlugins,
 }: TemplateOptions) {
   logger.debug('Initializing new project');
   logger.log(banner);
@@ -133,6 +137,12 @@ async function createFromTemplate({
         postInitScript,
         templateSourceDir,
       );
+    }
+
+    if (withConfigPlugins) {
+      loader.start('Adjusting project to use with config plugins');
+      await modifyTemplate();
+      loader.succeed();
     }
 
     if (!skipInstall) {
@@ -209,6 +219,7 @@ async function createProject(
     projectTitle: options.title,
     skipInstall: options.skipInstall,
     packageName: options.packageName,
+    withConfigPlugins: options.withConfigPlugins,
   });
 }
 
