@@ -163,7 +163,6 @@ async function setupAndRun() {
     config = loadConfig();
 
     logger.enable();
-
     for (const command of [...projectCommands, ...config.commands]) {
       attachCommand(command, config);
     }

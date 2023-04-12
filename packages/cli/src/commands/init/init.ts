@@ -19,7 +19,7 @@ import {
 import {changePlaceholderInTemplate} from './editTemplate';
 import * as PackageManager from '../../tools/packageManager';
 import {installPods} from '@react-native-community/cli-doctor';
-import {modifyTemplate} from '@react-native-community/cli-config-plugins';
+import {updateGitignore} from '@react-native-community/cli-config-plugins';
 import banner from './banner';
 import TemplateAndVersionError from './errors/TemplateAndVersionError';
 
@@ -139,12 +139,6 @@ async function createFromTemplate({
       );
     }
 
-    if (withConfigPlugins) {
-      loader.start('Adjusting project to use with config plugins');
-      await modifyTemplate();
-      loader.succeed();
-    }
-
     if (!skipInstall) {
       await installDependencies({
         npm,
@@ -154,6 +148,25 @@ async function createFromTemplate({
       });
     } else {
       loader.succeed('Dependencies installation skipped');
+    }
+
+    if (withConfigPlugins) {
+      if (!skipInstall) {
+        loader.start('Adjusting project to use with config plugins');
+        if (doesDirectoryExist(path.join(projectDirectory, 'ios'))) {
+          fs.removeSync(path.join(projectDirectory, 'ios'));
+        }
+        if (doesDirectoryExist(path.join(projectDirectory, 'android'))) {
+          fs.removeSync(path.join(projectDirectory, 'android'));
+        }
+
+        await updateGitignore(projectDirectory);
+        loader.succeed();
+      } else {
+        logger.warn(
+          'Skipping config plugins setup (--skip-install flag is used)',
+        );
+      }
     }
   } catch (e) {
     loader.fail();

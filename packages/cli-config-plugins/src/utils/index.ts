@@ -1,0 +1,1 @@
+export {addContent} from './fileContent';

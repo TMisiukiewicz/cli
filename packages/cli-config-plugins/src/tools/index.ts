@@ -1,1 +1,1 @@
-export {modifyTemplate} from './modifyTemplate';
+export {updateGitignore} from './updateGitignore';
