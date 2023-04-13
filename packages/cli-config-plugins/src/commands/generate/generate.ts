@@ -10,14 +10,24 @@ import {
   updateCachedConfig,
 } from '../../utils/reactNative';
 
-const generate = async (_: Array<string>, ctx: Config) => {
-  generateNativeProjects(ctx);
+export interface GenerateFlags {
+  clean?: boolean;
+  platform?: Array<'android' | 'ios'>;
+}
+
+const generate = async (
+  _: Array<string>,
+  ctx: Config,
+  options?: GenerateFlags,
+) => {
+  generateNativeProjects(ctx, options);
 };
 
 export const generateNativeProjects = async (
   config: Config,
-  platforms: Array<'android' | 'ios'> = ['android', 'ios'],
+  options?: GenerateFlags,
 ) => {
+  const platforms = options?.platform || ['android', 'ios'];
   const loader = getLoader({text: 'Generating native projects...'});
   const {root} = config;
 
@@ -28,21 +38,24 @@ export const generateNativeProjects = async (
   const appJsonHash = generateFileHash(path.join(root, 'app.json'));
   const didHashChange = hasHashChanged(root, 'appJson', appJsonHash);
 
-  if (didHashChange) {
+  if (didHashChange || options?.clean) {
     const srcDir = path.join(root, 'node_modules', 'react-native', 'template');
     const destDir = root;
-
     try {
       if (
-        platforms.includes('android') &&
-        !fs.existsSync(`${destDir}/android`)
+        (platforms.includes('android') &&
+          !fs.existsSync(`${destDir}/android`)) ||
+        options?.clean
       ) {
         fs.copySync(
           path.join(srcDir, 'android'),
           path.join(destDir, 'android'),
         );
       }
-      if (platforms.includes('ios') && !fs.existsSync(`${destDir}/ios`)) {
+      if (
+        (platforms.includes('ios') && !fs.existsSync(`${destDir}/ios`)) ||
+        options?.clean
+      ) {
         fs.copySync(path.join(srcDir, 'ios'), path.join(destDir, 'ios'));
       }
 
