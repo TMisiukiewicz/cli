@@ -1,9 +1,9 @@
 import loadConfig from '@react-native-community/cli-config';
 import {getConfig} from '@expo/config';
 import {compileModsAsync} from '@expo/config-plugins';
-import {withAndroidPlugins, withIosPlugins} from './defaultPlugins';
+import {withAndroidPlugins, withIosPlugins} from '../utils/defaultPlugins';
 
-export default (async function applyPlugins() {
+export default async function applyPlugins() {
   const {root} = loadConfig();
   let {exp: config} = getConfig(root, {
     skipSDKVersionRequirement: true,
@@ -14,7 +14,7 @@ export default (async function applyPlugins() {
     config.ios = {};
   }
   config.ios.bundleIdentifier =
-    config.ios.bundleIdentifier || 'com.placeholder.appid';
+    config.ios.bundleIdentifier || `com.${config.name.toLowerCase()}`;
 
   // Add all built-in plugins
   config = withIosPlugins(config, {
@@ -24,7 +24,8 @@ export default (async function applyPlugins() {
   if (!config.android) {
     config.android = {};
   }
-  config.android.package = config.android.package || 'com.placeholder.appid';
+  config.android.package =
+    config.android.package || `com.${config.name.toLowerCase()}`;
   // Add all built-in plugins
   config = withAndroidPlugins(config, {
     package: config.android.package,
@@ -35,4 +36,4 @@ export default (async function applyPlugins() {
     platforms: ['android', 'ios'],
     assertMissingModProviders: false,
   });
-});
+}

@@ -77,7 +77,6 @@ export const withAndroidPlugins: ConfigPlugin<{
 
     // Modify colors.xml and styles.xml
     AndroidConfig.StatusBar.withStatusBar,
-    AndroidConfig.PrimaryColor.withPrimaryColor,
     // If we renamed the package, we should also move it around and rename it in source files
     // Added last to ensure this plugin runs first. Out of tree solutions will mistakenly resolve the package incorrectly otherwise.
     AndroidConfig.Package.withPackageRefactor,

@@ -1,5 +1,5 @@
 import loadConfig from '@react-native-community/cli-config';
-import {CLIError, logger} from '@react-native-community/cli-tools';
+import {CLIError, getLoader, logger} from '@react-native-community/cli-tools';
 import type {
   Command,
   Config,
@@ -10,6 +10,7 @@ import childProcess from 'child_process';
 import {Command as CommanderCommand} from 'commander';
 import path from 'path';
 import {detachedCommands, projectCommands} from './commands';
+import {generateNativeProjects} from '@react-native-community/cli-config-plugins';
 
 const pkgJson = require('../package.json');
 
@@ -159,14 +160,19 @@ async function setupAndRun() {
   }
 
   let config: Config | undefined;
+  const loader = getLoader({text: 'Generating native projects...'});
   try {
     config = loadConfig();
+
+    generateNativeProjects(config);
+    loader.succeed();
 
     logger.enable();
     for (const command of [...projectCommands, ...config.commands]) {
       attachCommand(command, config);
     }
   } catch (error) {
+    loader.fail();
     /**
      * When there is no `package.json` found, the CLI will enter `detached` mode and a subset
      * of commands will be available. That's why we don't throw on such kind of error.

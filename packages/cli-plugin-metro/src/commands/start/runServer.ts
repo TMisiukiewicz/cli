@@ -16,8 +16,7 @@ import {
   indexPageMiddleware,
 } from '@react-native-community/cli-server-api';
 import {Config} from '@react-native-community/cli-types';
-import {getLoader, version} from '@react-native-community/cli-tools';
-import {generateNativeProjects} from '@react-native-community/cli-config-plugins';
+import {version} from '@react-native-community/cli-tools';
 import loadMetroConfig from '../../tools/loadMetroConfig';
 import enableWatchMode from './watchMode';
 
@@ -95,14 +94,6 @@ async function runServer(_argv: Array<string>, ctx: Config, args: Args) {
     }
     return middleware.use(metroMiddleware);
   };
-
-  const loader = getLoader({text: 'Generating native projects...'});
-  try {
-    generateNativeProjects(ctx);
-    loader.succeed();
-  } catch {
-    loader.fail();
-  }
 
   const serverInstance = await Metro.runServer(metroConfig, {
     host: args.host,
