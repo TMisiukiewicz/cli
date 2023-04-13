@@ -12,6 +12,7 @@ export const updateGitignore = async (projectDirectory: string) => {
       '# Native projects',
       '/ios',
       '/android',
+      '.react-native',
     ]);
 
     writeFileSync(`${projectDirectory}/.gitignore`, updatedContent);

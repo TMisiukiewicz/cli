@@ -152,6 +152,7 @@ async function createFromTemplate({
 
     if (withConfigPlugins) {
       loader.start('Adjusting project to use with config plugins');
+      // TODO: remove when native projects are out of the template
       if (doesDirectoryExist(path.join(projectDirectory, 'ios'))) {
         fs.removeSync(path.join(projectDirectory, 'ios'));
       }

@@ -1,44 +1,60 @@
 import path from 'path';
 import fs from 'fs-extra';
 import {Config} from '@react-native-community/cli-types';
-import {CLIError} from '@react-native-community/cli-tools';
+import {CLIError, getLoader} from '@react-native-community/cli-tools';
 import applyPlugins from '../../tools/applyPlugins';
+import {
+  createReactNativeFolder,
+  generateFileHash,
+  hasHashChanged,
+  updateCachedConfig,
+} from '../../utils/reactNative';
 
 const generate = async (_: Array<string>, ctx: Config) => {
   generateNativeProjects(ctx);
 };
 
-export const generateNativeProjects = (
+export const generateNativeProjects = async (
   config: Config,
   platforms: Array<'android' | 'ios'> = ['android', 'ios'],
 ) => {
+  const loader = getLoader({text: 'Generating native projects...'});
   const {root} = config;
 
-  const srcDir = path.join(root, 'node_modules', 'react-native', 'template');
-  const destDir = root;
+  if (!fs.existsSync(path.join(root, '.react-native'))) {
+    createReactNativeFolder(root);
+  }
 
-  try {
-    if (
-      platforms.includes('android') &&
-      fs.existsSync(path.join(destDir, 'android'))
-    ) {
-      fs.removeSync(path.join(destDir, 'android'));
-    }
+  const appJsonHash = generateFileHash(path.join(root, 'app.json'));
+  const didHashChange = hasHashChanged(root, 'appJson', appJsonHash);
 
-    if (platforms.includes('ios') && fs.existsSync(path.join(destDir, 'ios'))) {
-      fs.removeSync(path.join(destDir, 'ios'));
-    }
+  if (didHashChange) {
+    const srcDir = path.join(root, 'node_modules', 'react-native', 'template');
+    const destDir = root;
 
-    if (platforms.includes('android')) {
-      fs.copySync(path.join(srcDir, 'android'), path.join(destDir, 'android'));
-    }
-    if (platforms.includes('ios')) {
-      fs.copySync(path.join(srcDir, 'ios'), path.join(destDir, 'ios'));
-    }
+    try {
+      if (
+        platforms.includes('android') &&
+        !fs.existsSync(`${destDir}/android`)
+      ) {
+        fs.copySync(
+          path.join(srcDir, 'android'),
+          path.join(destDir, 'android'),
+        );
+      }
+      if (platforms.includes('ios') && !fs.existsSync(`${destDir}/ios`)) {
+        fs.copySync(path.join(srcDir, 'ios'), path.join(destDir, 'ios'));
+      }
 
-    applyPlugins();
-  } catch {
-    throw new CLIError('Failed to generate native projects.');
+      applyPlugins();
+
+      // Update app.json md5 after succesfull updating native projects
+      updateCachedConfig(root, 'appJson', appJsonHash);
+      loader.succeed();
+    } catch {
+      loader.fail();
+      throw new CLIError('Failed to generate native projects.');
+    }
   }
 };
 

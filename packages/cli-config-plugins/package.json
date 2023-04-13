@@ -20,7 +20,8 @@
     "directory": "packages/cli-config-plugins"
   },
   "dependencies": {
+    "@expo/config": "^8.0.2",
     "@expo/config-plugins": "6.0.1",
-    "@expo/config": "^8.0.2"
+    "crypto": "1.0.1"
   }
 }
