@@ -28,7 +28,6 @@ export const withIosPlugins: ConfigPlugin<{
     IOSConfig.Version.withBuildNumber,
     IOSConfig.Version.withVersion,
     IOSConfig.Google.withGoogleServicesFile,
-    IOSConfig.BuildProperties.withJsEnginePodfileProps,
     // Entitlements
     IOSConfig.Entitlements.withAssociatedDomains,
     // XcodeProject

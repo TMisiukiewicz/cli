@@ -36,15 +36,15 @@ export const generateNativeProjects = async (
   }
 
   const appJsonHash = generateFileHash(path.join(root, 'app.json'));
-  const didHashChange = hasHashChanged(root, 'appJson', appJsonHash);
+  const didAppJsonHashChange = hasHashChanged(root, 'appJson', appJsonHash);
 
-  if (didHashChange || options?.clean) {
+  if (didAppJsonHashChange || options?.clean) {
     const srcDir = path.join(root, 'node_modules', 'react-native', 'template');
     const destDir = root;
     try {
       if (
         (platforms.includes('android') &&
-          !fs.existsSync(`${destDir}/android`)) ||
+          !fs.existsSync(path.join(destDir, 'android'))) ||
         options?.clean
       ) {
         fs.copySync(
@@ -53,7 +53,8 @@ export const generateNativeProjects = async (
         );
       }
       if (
-        (platforms.includes('ios') && !fs.existsSync(`${destDir}/ios`)) ||
+        (platforms.includes('ios') &&
+          !fs.existsSync(path.join(destDir, 'ios'))) ||
         options?.clean
       ) {
         fs.copySync(path.join(srcDir, 'ios'), path.join(destDir, 'ios'));
