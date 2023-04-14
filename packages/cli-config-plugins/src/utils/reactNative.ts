@@ -3,7 +3,7 @@ import fs from 'fs-extra';
 import {createHash} from 'crypto';
 import {CLIError} from '@react-native-community/cli-tools';
 
-type CachedConfigKeys = 'appJson';
+type CachedConfigKeys = 'appJson' | 'appName';
 
 export const createReactNativeFolder = (projectRoot: string) => {
   try {
@@ -31,7 +31,13 @@ export const getCachedConfig = (projectRoot: string) => {
   }
 };
 
-export const hasHashChanged = (
+export const getCachedConfigValue = (projectRoot: string, key: string) => {
+  const cachedConfig = getCachedConfig(projectRoot);
+
+  return cachedConfig[key];
+};
+
+export const hasValueChanged = (
   projectRoot: string,
   key: CachedConfigKeys,
   value: string,

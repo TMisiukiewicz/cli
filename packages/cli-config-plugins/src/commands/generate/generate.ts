@@ -7,7 +7,8 @@ import applyPlugins from '../../tools/applyPlugins';
 import {
   createReactNativeFolder,
   generateFileHash,
-  hasHashChanged,
+  getCachedConfigValue,
+  hasValueChanged,
   updateCachedConfig,
 } from '../../utils/reactNative';
 
@@ -32,14 +33,33 @@ export const generateNativeProjects = async (
   const loader = getLoader({text: 'Generating native projects...'});
   const {root} = config;
 
-  if (!fs.existsSync(path.join(root, '.react-native'))) {
-    createReactNativeFolder(root);
+  if (options?.clean) {
+    try {
+      fs.removeSync(path.join(root, 'android'));
+      fs.removeSync(path.join(root, 'ios'));
+      fs.removeSync(path.join(root, '.react-native'));
+    } catch {
+      throw new CLIError('Failed to clean native projects');
+    }
   }
 
-  const appJsonHash = generateFileHash(path.join(root, 'app.json'));
-  const didAppJsonHashChange = hasHashChanged(root, 'appJson', appJsonHash);
+  const appJson: any = fs.readJSONSync(path.join(root, 'app.json'), {
+    encoding: 'utf8',
+  });
 
-  if (didAppJsonHashChange || options?.clean) {
+  const isFreshInstallation = !fs.existsSync(path.join(root, '.react-native'));
+
+  if (isFreshInstallation) {
+    createReactNativeFolder(root);
+    updateCachedConfig(root, 'appName', appJson.name);
+  }
+
+  const cachedAppName = getCachedConfigValue(root, 'appName');
+  const hasAppNameChanged = hasValueChanged(root, 'appName', appJson.name);
+  const appJsonHash = generateFileHash(path.join(root, 'app.json'));
+  const didAppJsonHashChange = hasValueChanged(root, 'appJson', appJsonHash);
+
+  if (didAppJsonHashChange) {
     const srcDir = path.join(root, 'node_modules', 'react-native', 'template');
     const destDir = root;
     try {
@@ -50,9 +70,8 @@ export const generateNativeProjects = async (
       );
 
       if (
-        (platforms.includes('android') &&
-          !fs.existsSync(path.join(destDir, 'android'))) ||
-        options?.clean
+        platforms.includes('android') &&
+        !fs.existsSync(path.join(destDir, 'android'))
       ) {
         fs.copySync(
           path.join(srcDir, 'android'),
@@ -60,9 +79,8 @@ export const generateNativeProjects = async (
         );
       }
       if (
-        (platforms.includes('ios') &&
-          !fs.existsSync(path.join(destDir, 'ios'))) ||
-        options?.clean
+        platforms.includes('ios') &&
+        !fs.existsSync(path.join(destDir, 'ios'))
       ) {
         fs.copySync(path.join(srcDir, 'ios'), path.join(destDir, 'ios'));
       }
@@ -71,11 +89,10 @@ export const generateNativeProjects = async (
         projectName: appJsonContent.name,
         projectTitle: appJsonContent.displayName,
         placeholderTitle: 'Hello App Display Name',
-        placeholderName: 'HelloWorld',
+        placeholderName: hasAppNameChanged ? cachedAppName : 'HelloWorld',
       });
 
-      applyPlugins();
-
+      await applyPlugins();
       // Update app.json md5 after succesfull updating native projects
       updateCachedConfig(root, 'appJson', appJsonHash);
       loader.succeed();
