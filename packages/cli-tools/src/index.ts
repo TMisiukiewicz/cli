@@ -11,6 +11,7 @@ export {default as hookStdout} from './hookStdout';
 export {getLoader, NoopLoader, Loader} from './loader';
 export {default as findProjectRoot} from './findProjectRoot';
 export {default as printRunDoctorTip} from './printRunDoctorTip';
+export {default as walk} from './walk';
 export * as link from './doclink';
-
+export * as editTemplate from './editTemplate';
 export * from './errors';

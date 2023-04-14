@@ -3,7 +3,11 @@
     "compilerOptions": {
       "rootDir": "src",
       "outDir": "build",
-      "typeRoots": ["src/types"]
+      "typeRoots": ["src/types"],
     },
+    "references": [
+      {"path": "../cli-types"},
+      {"path": "../cli-tools"},
+    ]
   }
   

@@ -22,3 +22,9 @@ export const detachedCommands = [
   init,
   doctorCommands.doctor,
 ] as DetachedCommand[];
+
+export const commandsGeneratingNativeProjects = [
+  'start',
+  'run-android',
+  'run-ios',
+];

@@ -1,6 +1,7 @@
 import path from 'path';
-import {CLIError, logger} from '@react-native-community/cli-tools';
-import walk from '../../tools/walk';
+import {CLIError} from './errors';
+import logger from './logger';
+import walk from './walk';
 
 // We need `graceful-fs` behavior around async file renames on Win32.
 // `gracefulify` does not support patching `fs.promises`. Use `fs-extra`, which

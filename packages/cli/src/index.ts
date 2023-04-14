@@ -163,7 +163,7 @@ async function setupAndRun() {
   try {
     config = loadConfig();
 
-    generateNativeProjects(config);
+    await generateNativeProjects(config);
     logger.enable();
     for (const command of [...projectCommands, ...config.commands]) {
       attachCommand(command, config);

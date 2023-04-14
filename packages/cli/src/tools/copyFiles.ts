@@ -5,9 +5,9 @@
  * LICENSE file in the root directory of this source tree.
  */
 
+import {walk} from '@react-native-community/cli-tools';
 import fs from 'fs';
 import path from 'path';
-import walk from './walk';
 
 type Options = {
   exclude?: Array<RegExp>;

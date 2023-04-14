@@ -2,6 +2,7 @@ import path from 'path';
 import fs from 'fs-extra';
 import {Config} from '@react-native-community/cli-types';
 import {CLIError, getLoader} from '@react-native-community/cli-tools';
+import {editTemplate} from '@react-native-community/cli-tools';
 import applyPlugins from '../../tools/applyPlugins';
 import {
   createReactNativeFolder,
@@ -42,6 +43,12 @@ export const generateNativeProjects = async (
     const srcDir = path.join(root, 'node_modules', 'react-native', 'template');
     const destDir = root;
     try {
+      const appJsonContent = JSON.parse(
+        fs.readFileSync(path.join(root, 'app.json'), {
+          encoding: 'utf8',
+        }),
+      );
+
       if (
         (platforms.includes('android') &&
           !fs.existsSync(path.join(destDir, 'android'))) ||
@@ -59,6 +66,13 @@ export const generateNativeProjects = async (
       ) {
         fs.copySync(path.join(srcDir, 'ios'), path.join(destDir, 'ios'));
       }
+
+      await editTemplate.changePlaceholderInTemplate({
+        projectName: appJsonContent.name,
+        projectTitle: appJsonContent.displayName,
+        placeholderTitle: 'Hello App Display Name',
+        placeholderName: 'HelloWorld',
+      });
 
       applyPlugins();
 

@@ -16,7 +16,7 @@ import {
   copyTemplate,
   executePostInitScript,
 } from './template';
-import {changePlaceholderInTemplate} from './editTemplate';
+import {changePlaceholderInTemplate} from '@react-native-community/cli-tools/src/editTemplate';
 import * as PackageManager from '../../tools/packageManager';
 import {installPods} from '@react-native-community/cli-doctor';
 import {updateGitignore} from '@react-native-community/cli-config-plugins';
@@ -111,6 +111,7 @@ async function createFromTemplate({
 
     const templateName = getTemplateName(templateSourceDir);
     const templateConfig = getTemplateConfig(templateName, templateSourceDir);
+
     await copyTemplate(
       templateName,
       templateConfig.templateDir,
