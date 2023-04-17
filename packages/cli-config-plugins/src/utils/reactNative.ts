@@ -1,6 +1,5 @@
 import path from 'path';
 import fs from 'fs-extra';
-import {createHash} from 'crypto';
 import {CLIError} from '@react-native-community/cli-tools';
 
 type CachedConfigKeys =
@@ -11,25 +10,26 @@ type CachedConfigKeys =
 
 type ReactNativeCachedFile = {[key in CachedConfigKeys]: string};
 
+export type CacheFile = Partial<ReactNativeCachedFile>;
+
 export const createReactNativeFolder = (projectRoot: string) => {
+  const filePath = path.join(projectRoot, '.react-native', 'cached.json');
+
   try {
     fs.mkdir(path.join(projectRoot, '.react-native'));
-    fs.createFileSync(path.join(projectRoot, '.react-native', 'cached.json'));
+    fs.createFileSync(filePath);
 
-    fs.writeFileSync(
-      path.join(projectRoot, '.react-native', 'cached.json'),
-      '{}',
-      {encoding: 'utf8'},
-    );
+    fs.writeFileSync(filePath, '{}', {encoding: 'utf8'});
   } catch {
     throw new CLIError('Failed to create .react-native folder.');
   }
 };
 
-export const getCachedConfig = (projectRoot: string) => {
-  const cachedFilePath = path.join(projectRoot, '.react-native', 'cached.json');
+export const getCachedConfig = (projectRoot: string): CacheFile => {
+  const filePath = path.join(projectRoot, '.react-native', 'cached.json');
+
   try {
-    const config = fs.readJsonSync(cachedFilePath, {encoding: 'utf8'});
+    const config = fs.readJsonSync(filePath, {encoding: 'utf8'});
 
     return config;
   } catch {
@@ -37,64 +37,26 @@ export const getCachedConfig = (projectRoot: string) => {
   }
 };
 
-export const generateFileHash = (filePath: string) => {
+export const getCacheFile = (projectRoot: string): CacheFile => {
   try {
-    const file = fs.readFileSync(filePath, {encoding: 'utf8'});
-    const hash = createHash('sha1').update(file).digest('hex');
+    const filePath = path.join(projectRoot, '.react-native', 'cached.json');
 
-    return hash;
-  } catch {
-    throw new CLIError('Failed to generate file hash.');
-  }
-};
-
-export const updateCachedConfig = (
-  projectRoot: string,
-  key: CachedConfigKeys,
-  value: string,
-) => {
-  const cachedFilePath = path.join(projectRoot, '.react-native', 'cached.json');
-  try {
-    const cache = getCachedConfig(projectRoot);
-    cache[key] = value;
-
-    fs.writeJsonSync(cachedFilePath, cache, {encoding: 'utf8'});
-  } catch {
-    throw new CLIError('Failed to update cached config.');
-  }
-};
-
-export const getCacheFile = (projectRoot: string): ReactNativeCachedFile => {
-  try {
-    const cachedFilePath = path.join(
-      projectRoot,
-      '.react-native',
-      'cached.json',
-    );
-
-    return fs.readJsonSync(cachedFilePath, {encoding: 'utf8'});
+    return fs.readJsonSync(filePath, {encoding: 'utf8'});
   } catch {
     throw new CLIError('Failed to read cached config.');
   }
 };
 
 export const updateMultipleCachedKeys = (
-  cache: ReactNativeCachedFile,
-  values: Partial<ReactNativeCachedFile>,
+  cache: CacheFile,
+  values: CacheFile,
 ) => ({...cache, ...values});
 
-export const saveCacheFile = (
-  projectRoot: string,
-  cache: ReactNativeCachedFile,
-) => {
-  try {
-    const cachedFilePath = path.join(
-      projectRoot,
-      '.react-native',
-      'cached.json',
-    );
+export const saveCacheFile = (projectRoot: string, cache: CacheFile) => {
+  const filePath = path.join(projectRoot, '.react-native', 'cached.json');
 
-    fs.writeJsonSync(cachedFilePath, cache, {encoding: 'utf8'});
+  try {
+    fs.writeJsonSync(filePath, cache, {encoding: 'utf8'});
   } catch {
     throw new CLIError('Failed to update cached config.');
   }

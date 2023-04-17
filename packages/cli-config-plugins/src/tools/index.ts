@@ -1,1 +1,0 @@
-export {updateGitignore} from './updateGitignore';

@@ -1,5 +1,5 @@
 import {PackageJSONConfig} from '@expo/config';
-import {createFileHash} from '../utils/createFileHash';
+import createFileHash from './createFileHash';
 
 export type DependenciesMap = {[key: string]: string | number};
 

@@ -1,9 +1,9 @@
 import loadConfig from '@react-native-community/cli-config';
 import {getConfig} from '@expo/config';
 import {ModConfig, compileModsAsync} from '@expo/config-plugins';
-import {withAndroidPlugins, withIosPlugins} from '../utils/defaultPlugins';
+import {withAndroidPlugins, withIosPlugins} from './defaultPlugins';
 
-export default async function applyPlugins(platforms?: (keyof ModConfig)[]) {
+const applyPlugins = async (platforms?: (keyof ModConfig)[]) => {
   const {root} = loadConfig();
   let {exp: config} = getConfig(root, {
     skipSDKVersionRequirement: true,
@@ -36,4 +36,6 @@ export default async function applyPlugins(platforms?: (keyof ModConfig)[]) {
     platforms: platforms || ['ios', 'android'],
     assertMissingModProviders: false,
   });
-}
+};
+
+export default applyPlugins;

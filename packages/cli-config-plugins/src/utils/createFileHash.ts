@@ -1,4 +1,6 @@
 import crypto from 'crypto';
 
-export const createFileHash = (contents: string) =>
+const createFileHash = (contents: string) =>
   crypto.createHash('sha1').update(contents).digest('hex');
+
+export default createFileHash;

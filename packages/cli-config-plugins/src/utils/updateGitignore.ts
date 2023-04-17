@@ -1,8 +1,8 @@
 import {logger} from '@react-native-community/cli-tools';
 import {readFileSync, writeFileSync} from 'fs';
-import {addContent} from '../utils/fileContent';
+import addContent from './addContent';
 
-export const updateGitignore = async (projectDirectory: string) => {
+const updateGitignore = async (projectDirectory: string) => {
   try {
     const content = readFileSync(`${projectDirectory}/.gitignore`, {
       encoding: 'utf8',
@@ -22,3 +22,5 @@ export const updateGitignore = async (projectDirectory: string) => {
     );
   }
 };
+
+export default updateGitignore;
