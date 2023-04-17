@@ -1,16 +1,24 @@
 import path from 'path';
 import fs from 'fs-extra';
 import {Config} from '@react-native-community/cli-types';
-import {CLIError, getLoader} from '@react-native-community/cli-tools';
-import {editTemplate} from '@react-native-community/cli-tools';
+import {
+  CLIError,
+  getLoader,
+  editTemplate,
+} from '@react-native-community/cli-tools';
+import {installPods} from '@react-native-community/cli-doctor';
 import applyPlugins from '../../tools/applyPlugins';
 import {
   createReactNativeFolder,
-  generateFileHash,
-  getCachedConfigValue,
-  hasValueChanged,
+  getCacheFile,
+  saveCacheFile,
   updateCachedConfig,
+  updateMultipleCachedKeys,
 } from '../../utils/reactNative';
+import {createFileHash} from '../../utils/createFileHash';
+import {getPackageJson} from '@expo/config';
+import {createPackageJsonCheckSums} from '../../tools/updatePackageJson';
+import {removeGeneratedFiles} from '../../tools/removeGeneratedFiles';
 
 export interface GenerateFlags {
   clean?: boolean;
@@ -31,35 +39,40 @@ export const generateNativeProjects = async (
 ) => {
   const platforms = options?.platform || ['android', 'ios'];
   const loader = getLoader({text: 'Generating native projects...'});
+
+  loader.start();
   const {root} = config;
 
   if (options?.clean) {
-    try {
-      fs.removeSync(path.join(root, 'android'));
-      fs.removeSync(path.join(root, 'ios'));
-      fs.removeSync(path.join(root, '.react-native'));
-    } catch {
-      throw new CLIError('Failed to clean native projects');
-    }
+    removeGeneratedFiles(root);
   }
 
   const appJson: any = fs.readJSONSync(path.join(root, 'app.json'), {
     encoding: 'utf8',
   });
 
-  const isFreshInstallation = !fs.existsSync(path.join(root, '.react-native'));
+  try {
+    const isFreshInstallation = !fs.existsSync(
+      path.join(root, '.react-native'),
+    );
 
-  if (isFreshInstallation) {
-    createReactNativeFolder(root);
-    updateCachedConfig(root, 'appName', appJson.name);
+    if (isFreshInstallation) {
+      createReactNativeFolder(root);
+      updateCachedConfig(root, 'appName', appJson.name);
+    }
+  } catch {
+    throw new CLIError('Failed to create .react-native folder.');
   }
 
-  const cachedAppName = getCachedConfigValue(root, 'appName');
-  const hasAppNameChanged = hasValueChanged(root, 'appName', appJson.name);
-  const appJsonHash = generateFileHash(path.join(root, 'app.json'));
-  const didAppJsonHashChange = hasValueChanged(root, 'appJson', appJsonHash);
+  const cache = getCacheFile(root);
+  const appJsonHash = createFileHash(JSON.stringify(appJson));
 
-  if (didAppJsonHashChange) {
+  let keysToUpdate = {};
+
+  if (appJsonHash !== cache.appJson) {
+    keysToUpdate = {
+      appJson: appJsonHash,
+    };
     const srcDir = path.join(root, 'node_modules', 'react-native', 'template');
     const destDir = root;
     try {
@@ -89,17 +102,49 @@ export const generateNativeProjects = async (
         projectName: appJsonContent.name,
         projectTitle: appJsonContent.displayName,
         placeholderTitle: 'Hello App Display Name',
-        placeholderName: hasAppNameChanged ? cachedAppName : 'HelloWorld',
+        placeholderName:
+          cache.appName !== appJson.name ? cache.appName : 'HelloWorld',
       });
 
       await applyPlugins();
-      // Update app.json md5 after succesfull updating native projects
-      updateCachedConfig(root, 'appJson', appJsonHash);
-      loader.succeed();
     } catch {
       loader.fail();
       throw new CLIError('Failed to generate native projects.');
     }
+  }
+
+  loader.succeed();
+
+  const podsLoader = getLoader({
+    text: 'Installing CocoaPods dependencies...',
+  });
+  try {
+    const packageJson = getPackageJson(root);
+    const checksums = createPackageJsonCheckSums(packageJson);
+
+    const hasNewDependencies = checksums.dependencies !== cache.dependencies;
+    const hasNewDevDependencies =
+      checksums.devDependencies !== cache.devDependencies;
+
+    if (
+      (hasNewDependencies || hasNewDevDependencies) &&
+      process.platform === 'darwin'
+    ) {
+      keysToUpdate = {
+        ...keysToUpdate,
+        dependencies: checksums.dependencies,
+        devDependencies: checksums.devDependencies,
+      };
+      await installPods({directory: root, loader: podsLoader});
+      podsLoader.succeed();
+    }
+
+    const cachedValues = updateMultipleCachedKeys(cache, keysToUpdate);
+
+    saveCacheFile(root, cachedValues);
+  } catch {
+    podsLoader.fail();
+    throw new CLIError('Failed to generate native projects.');
   }
 };
 
