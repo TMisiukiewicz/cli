@@ -164,7 +164,14 @@ async function setupAndRun() {
     config = loadConfig();
 
     if (!process.argv.includes('generate')) {
-      await generateNativeProjects(config);
+      await generateNativeProjects(config, {
+        ios:
+          process.argv.includes('run-ios') ||
+          process.argv.includes('build-ios'),
+        android:
+          process.argv.includes('run-android') ||
+          process.argv.includes('build-ios'),
+      });
     }
     logger.enable();
     for (const command of [...projectCommands, ...config.commands]) {

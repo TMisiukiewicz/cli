@@ -4,16 +4,13 @@ import path from 'path';
 const copyTemplateFiles = (
   srcDir: string,
   destDir: string,
-  platforms: Array<'android' | 'ios'>,
+  platforms: {android: boolean; ios: boolean},
 ) => {
-  if (
-    platforms.includes('android') &&
-    !fs.existsSync(path.join(destDir, 'android'))
-  ) {
+  if (platforms.android && !fs.existsSync(path.join(destDir, 'android'))) {
     fs.copySync(path.join(srcDir, 'android'), path.join(destDir, 'android'));
   }
 
-  if (platforms.includes('ios') && !fs.existsSync(path.join(destDir, 'ios'))) {
+  if (platforms.ios && !fs.existsSync(path.join(destDir, 'ios'))) {
     fs.copySync(path.join(srcDir, 'ios'), path.join(destDir, 'ios'));
   }
 };

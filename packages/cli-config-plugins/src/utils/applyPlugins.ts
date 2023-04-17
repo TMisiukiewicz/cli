@@ -3,8 +3,11 @@ import {getConfig} from '@expo/config';
 import {ModConfig, compileModsAsync} from '@expo/config-plugins';
 import {withAndroidPlugins, withIosPlugins} from './defaultPlugins';
 
-const applyPlugins = async (platforms?: (keyof ModConfig)[]) => {
+const applyPlugins = async (
+  platforms: {ios: boolean; android: boolean} = {ios: true, android: true},
+) => {
   const {root} = loadConfig();
+
   let {exp: config} = getConfig(root, {
     skipSDKVersionRequirement: true,
     isModdedConfig: true,
@@ -33,7 +36,9 @@ const applyPlugins = async (platforms?: (keyof ModConfig)[]) => {
 
   await compileModsAsync(config, {
     projectRoot: root,
-    platforms: platforms || ['ios', 'android'],
+    platforms: Object.keys(platforms).filter(
+      (platform) => platforms[platform as keyof ModConfig],
+    ) as (keyof ModConfig)[],
     assertMissingModProviders: false,
   });
 };

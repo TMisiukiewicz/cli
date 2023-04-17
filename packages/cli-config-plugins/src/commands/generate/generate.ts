@@ -22,7 +22,8 @@ import {
 
 export interface GenerateFlags {
   clean?: boolean;
-  platform?: Array<'android' | 'ios'>;
+  ios?: boolean;
+  android?: boolean;
 }
 
 const generate = async (
@@ -37,7 +38,11 @@ export const generateNativeProjects = async (
   config: Config,
   options?: GenerateFlags,
 ) => {
-  const platforms = options?.platform || ['android', 'ios'];
+  let platforms = {
+    ios: options?.ios !== undefined ? options.ios : true,
+    android: options?.android !== undefined ? options.android : true,
+  };
+  console.log({options, platforms});
   const loader = getLoader({text: 'Generating native projects...'});
 
   loader.start();
@@ -67,23 +72,29 @@ export const generateNativeProjects = async (
     keysToUpdate = {
       appJson: appJsonHash,
     };
+
     const srcDir = path.join(root, 'node_modules', 'react-native', 'template');
     const destDir = root;
 
     copyTemplateFiles(srcDir, destDir, platforms);
 
     try {
-      await editTemplate.changePlaceholderInTemplate({
-        projectName: appJson.name,
-        projectTitle: appJson.displayName,
-        placeholderTitle: 'Hello App Display Name',
-        placeholderName:
-          cache.appName !== appJson.name
-            ? (cache.appName as string)
-            : 'HelloWorld',
-      });
+      if (options?.android) {
+        await overwritePlaceholders(
+          'android',
+          cache.appName as string,
+          appJson.name,
+        );
+      }
 
-      await applyPlugins();
+      if (options?.ios) {
+        await overwritePlaceholders(
+          'ios',
+          cache.appName as string,
+          appJson.name,
+        );
+      }
+      await applyPlugins(platforms);
     } catch {
       throw new CLIError('Failed to apply changes in native projects.');
     }
@@ -123,6 +134,21 @@ export const generateNativeProjects = async (
 
     saveCacheFile(root, cachedValues);
   }
+};
+
+const overwritePlaceholders = async (
+  platform: 'ios' | 'android',
+  cachedName: string,
+  appName: string,
+) => {
+  process.chdir(platform);
+  await editTemplate.changePlaceholderInTemplate({
+    projectName: appName,
+    projectTitle: appName,
+    placeholderTitle: 'Hello App Display Name',
+    placeholderName: cachedName !== appName ? appName : 'HelloWorld',
+  });
+  process.chdir('..');
 };
 
 export default generate;
