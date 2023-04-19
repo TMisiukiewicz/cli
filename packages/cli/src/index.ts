@@ -162,8 +162,15 @@ async function setupAndRun() {
   let config: Config | undefined;
   try {
     config = loadConfig();
-
-    if (!process.argv.includes('generate')) {
+    const allowGenerationCommands = [
+      'run-ios',
+      'run-android',
+      'build-ios',
+      'build-android',
+    ];
+    if (
+      process.argv.some((element) => allowGenerationCommands.includes(element))
+    ) {
       await generateNativeProjects(config, {
         ios:
           process.argv.includes('run-ios') ||
