@@ -7,7 +7,7 @@
     "declarationMap": true,
     "composite": true,
     "emitDeclarationOnly": true,
-
+    "skipLibCheck": true,
     "strict": true,
 
     /* Additional Checks */

@@ -1,11 +1,9 @@
 import loadConfig from '@react-native-community/cli-config';
 import {getConfig} from '@expo/config';
-import {ModConfig, compileModsAsync} from '@expo/config-plugins';
+import {ModPlatform, compileModsAsync} from '@expo/config-plugins';
 import {withAndroidPlugins, withIosPlugins} from './defaultPlugins';
 
-const applyPlugins = async (
-  platforms: {ios: boolean; android: boolean} = {ios: true, android: true},
-) => {
+const applyPlugins = async (platforms: ModPlatform[]) => {
   const {root} = loadConfig();
 
   let {exp: config} = getConfig(root, {
@@ -36,9 +34,7 @@ const applyPlugins = async (
 
   await compileModsAsync(config, {
     projectRoot: root,
-    platforms: Object.keys(platforms).filter(
-      (platform) => platforms[platform as keyof ModConfig],
-    ) as (keyof ModConfig)[],
+    platforms,
     assertMissingModProviders: false,
   });
 };

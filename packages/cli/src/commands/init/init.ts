@@ -16,7 +16,7 @@ import {
   copyTemplate,
   executePostInitScript,
 } from './template';
-import {changePlaceholderInTemplate} from '@react-native-community/cli-tools/src/editTemplate';
+import {editTemplate} from '@react-native-community/cli-tools';
 import * as PackageManager from '../../tools/packageManager';
 import {installPods} from '@react-native-community/cli-doctor';
 import {updateGitignore} from '@react-native-community/cli-config-plugins';
@@ -121,7 +121,7 @@ async function createFromTemplate({
     loader.succeed();
     loader.start('Processing template');
 
-    await changePlaceholderInTemplate({
+    await editTemplate.changePlaceholderInTemplate({
       projectName,
       projectTitle,
       placeholderName: templateConfig.placeholderName,

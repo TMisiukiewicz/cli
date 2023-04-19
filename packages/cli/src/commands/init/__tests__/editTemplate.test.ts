@@ -3,13 +3,13 @@ import path from 'path';
 import fs from 'fs-extra';
 import snapshotDiff from 'snapshot-diff';
 import slash from 'slash';
-import walk from '../../../tools/walk';
 import copyFiles from '../../../tools/copyFiles';
 import {
   changePlaceholderInTemplate,
   replacePlaceholderWithPackageName,
   validatePackageName,
-} from '../editTemplate';
+} from '@react-native-community/cli-tools/build/editTemplate';
+import {walk} from '@react-native-community/cli-tools';
 
 const FIXTURE_DIR = path.resolve(
   __dirname,

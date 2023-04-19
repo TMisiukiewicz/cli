@@ -9,5 +9,13 @@ export default {
       name: '--clean',
       description: 'Clean the native projects before generating',
     },
+    {
+      name: '--ios',
+      description: 'Generate iOS native project',
+    },
+    {
+      name: '--android',
+      description: 'Generate Android native project',
+    },
   ],
 };

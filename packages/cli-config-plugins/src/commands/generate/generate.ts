@@ -19,6 +19,7 @@ import {
   saveCacheFile,
   updateMultipleCachedKeys,
 } from '../../utils';
+import {ModPlatform} from '@expo/config-plugins';
 
 export interface GenerateFlags {
   clean?: boolean;
@@ -38,12 +39,19 @@ export const generateNativeProjects = async (
   config: Config,
   options?: GenerateFlags,
 ) => {
-  let platforms = {
-    ios: options?.ios !== undefined ? options.ios : true,
-    android: options?.android !== undefined ? options.android : true,
-  };
-  console.log({options, platforms});
-  const loader = getLoader({text: 'Generating native projects...'});
+  const platformsNotDefined =
+    options?.ios === undefined && options?.android === undefined;
+
+  let platforms: ModPlatform[] = platformsNotDefined ? ['android', 'ios'] : [];
+
+  if (options?.ios) {
+    platforms.push('ios');
+  }
+  if (options?.android) {
+    platforms.push('android');
+  }
+
+  const loader = getLoader({text: 'Generating native code...'});
 
   loader.start();
   const {root} = config;
@@ -57,6 +65,10 @@ export const generateNativeProjects = async (
   });
 
   const isFreshInstallation = !fs.existsSync(path.join(root, '.react-native'));
+  const isFreshAndroidRun =
+    !fs.existsSync(path.join(root, 'android')) && platforms.includes('android');
+  const isFreshIOSRun =
+    !fs.existsSync(path.join(root, 'ios')) && platforms.includes('ios');
 
   if (isFreshInstallation) {
     createReactNativeFolder(root);
@@ -68,7 +80,8 @@ export const generateNativeProjects = async (
 
   let keysToUpdate = {};
 
-  if (appJsonHash !== cache.appJson) {
+  // this is the line that is causing the error - if android folder exists it fails to run ios and vice versa
+  if (appJsonHash !== cache.appJson || isFreshAndroidRun || isFreshIOSRun) {
     keysToUpdate = {
       appJson: appJsonHash,
     };
@@ -79,7 +92,7 @@ export const generateNativeProjects = async (
     copyTemplateFiles(srcDir, destDir, platforms);
 
     try {
-      if (options?.android) {
+      if (platforms.includes('android')) {
         await overwritePlaceholders(
           'android',
           cache.appName as string,
@@ -87,7 +100,7 @@ export const generateNativeProjects = async (
         );
       }
 
-      if (options?.ios) {
+      if (platforms.includes('ios')) {
         await overwritePlaceholders(
           'ios',
           cache.appName as string,
@@ -110,7 +123,7 @@ export const generateNativeProjects = async (
     checksums.devDependencies !== cache.devDependencies;
 
   if (
-    (hasNewDependencies || hasNewDevDependencies) &&
+    (hasNewDependencies || hasNewDevDependencies || isFreshIOSRun) &&
     process.platform === 'darwin'
   ) {
     keysToUpdate = {
@@ -118,16 +131,19 @@ export const generateNativeProjects = async (
       dependencies: checksums.dependencies,
       devDependencies: checksums.devDependencies,
     };
-    const podsLoader = getLoader({
-      text: 'Installing CocoaPods dependencies...',
-    });
 
-    try {
-      await installPods({directory: root, loader: podsLoader});
-      podsLoader.succeed();
-    } catch {
-      podsLoader.fail();
-      throw new CLIError('Failed to generate native projects.');
+    if (platforms.includes('ios')) {
+      const podsLoader = getLoader({
+        text: 'Installing CocoaPods dependencies...',
+      });
+
+      try {
+        await installPods({directory: root, loader: podsLoader});
+        podsLoader.succeed();
+      } catch {
+        podsLoader.fail();
+        throw new CLIError('Failed to generate native projects.');
+      }
     }
 
     const cachedValues = updateMultipleCachedKeys(cache, keysToUpdate);
