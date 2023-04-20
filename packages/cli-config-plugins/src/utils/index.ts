@@ -4,6 +4,7 @@ import copyTemplateFiles from './copyTemplateFiles';
 import createFileHash from './createFileHash';
 import removeGeneratedFiles from './removeGeneratedFiles';
 import updateGitignore from './updateGitignore';
+import isUsingPrebuild from './isUsingPrebuild';
 
 export * from './defaultPlugins';
 export * from './reactNative';
@@ -16,4 +17,5 @@ export {
   createFileHash,
   removeGeneratedFiles,
   updateGitignore,
+  isUsingPrebuild,
 };

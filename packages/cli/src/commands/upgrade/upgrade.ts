@@ -7,6 +7,10 @@ import {Config} from '@react-native-community/cli-types';
 import {logger, CLIError, fetch} from '@react-native-community/cli-tools';
 import * as PackageManager from '../../tools/packageManager';
 import {installPods} from '@react-native-community/cli-doctor';
+import {
+  isUsingPrebuild,
+  removeGeneratedFiles,
+} from '@react-native-community/cli-config-plugins';
 
 type UpgradeError = {message: string; stderr: string};
 
@@ -344,6 +348,7 @@ const applyPatch = async (
 async function upgrade(argv: Array<string>, ctx: Config) {
   const tmpPatchFile = 'tmp-upgrade-rn.patch';
   const projectDir = ctx.root;
+  const isPrebuild = isUsingPrebuild(projectDir);
   const {name: rnName, version: currentVersion} = require(path.join(
     projectDir,
     'node_modules/react-native/package.json',
@@ -363,6 +368,11 @@ async function upgrade(argv: Array<string>, ctx: Config) {
     return;
   }
 
+  if (isPrebuild) {
+    removeGeneratedFiles(projectDir);
+
+    return;
+  }
   const patch = await getPatch(currentVersion, newVersion, ctx, repoName);
 
   if (patch === null) {
