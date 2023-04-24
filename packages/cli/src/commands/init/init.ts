@@ -70,7 +70,7 @@ async function setProjectDirectory(directory: string) {
   return process.cwd();
 }
 
-function getTemplateName(cwd: string) {
+export function getTemplateName(cwd: string) {
   // We use package manager to infer the name of the template module for us.
   // That's why we get it from temporary package.json, where the name is the
   // first and only dependency (hence 0).

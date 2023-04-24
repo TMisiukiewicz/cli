@@ -1,5 +1,6 @@
 import path from 'path';
-import fs from 'fs';
+import os from 'os';
+import fs from 'fs-extra';
 import chalk from 'chalk';
 import semver from 'semver';
 import execa from 'execa';
@@ -8,9 +9,12 @@ import {logger, CLIError, fetch} from '@react-native-community/cli-tools';
 import * as PackageManager from '../../tools/packageManager';
 import {installPods} from '@react-native-community/cli-doctor';
 import {
+  PackageJSONConfig,
   isUsingPrebuild,
   removeGeneratedFiles,
 } from '@react-native-community/cli-config-plugins';
+import {getTemplateConfig, installTemplatePackage} from '../init/template';
+import {getTemplateName} from '../init/init';
 
 type UpgradeError = {message: string; stderr: string};
 
@@ -342,6 +346,28 @@ const applyPatch = async (
   return true;
 };
 
+function alignDeps(
+  currentPackageJson: PackageJSONConfig,
+  newPackageJson: PackageJSONConfig,
+) {
+  const currentDeps = currentPackageJson.dependencies || {};
+  const currentDevDeps = currentPackageJson.devDependencies || {};
+
+  const newDeps = newPackageJson.dependencies || {};
+  const newDevDeps = newPackageJson.devDependencies || {};
+  console.log({currentDevDeps, newDevDeps});
+
+  const dependencies = Object.keys(newDeps).reduce((acc, dependency) => {
+    return {...acc, [dependency]: newDeps[dependency]};
+  }, currentDeps);
+
+  const devDependencies = Object.keys(newDevDeps).reduce((acc, dependency) => {
+    return {...acc, [dependency]: newDevDeps[dependency]};
+  }, currentDevDeps);
+
+  return {...currentPackageJson, dependencies, devDependencies};
+}
+
 /**
  * Upgrade application to a new version of React Native.
  */
@@ -369,10 +395,53 @@ async function upgrade(argv: Array<string>, ctx: Config) {
   }
 
   if (isPrebuild) {
-    removeGeneratedFiles(projectDir);
+    removeGeneratedFiles(projectDir, {keepCache: true});
+    const templateSourceDir = fs.mkdtempSync(
+      path.join(os.tmpdir(), 'rncli-upgrade-template-'),
+    );
+
+    await installTemplatePackage(
+      `react-native@${newVersion}`,
+      templateSourceDir,
+      false,
+    );
+
+    const templateName = getTemplateName(templateSourceDir);
+    const templateConfig = getTemplateConfig(templateName, templateSourceDir);
+    const templatePath = path.resolve(
+      templateSourceDir,
+      'node_modules',
+      templateName,
+      templateConfig.templateDir,
+    );
+    const currentVersionPackageJson = fs.readJsonSync(
+      path.join(projectDir, 'package.json'),
+      {encoding: 'utf8'},
+    );
+    const newVersionPackageJson = fs.readJsonSync(
+      path.join(templatePath, 'package.json'),
+      {encoding: 'utf8'},
+    );
+    const alignedPackageJson = alignDeps(
+      currentVersionPackageJson,
+      newVersionPackageJson,
+    );
+
+    fs.writeJsonSync(
+      path.join(projectDir, 'package.json'),
+      alignedPackageJson,
+      {encoding: 'utf8', spaces: 2},
+    );
+
+    PackageManager.installAll({
+      preferYarn: true,
+      silent: false,
+      root: projectDir,
+    });
 
     return;
   }
+
   const patch = await getPatch(currentVersion, newVersion, ctx, repoName);
 
   if (patch === null) {
@@ -439,15 +508,15 @@ async function upgrade(argv: Array<string>, ctx: Config) {
         );
       }
       logger.info(`You may find these resources helpful:
-• Release notes: ${chalk.underline.dim(
-        `https://github.com/facebook/react-native/releases/tag/v${newVersion}`,
-      )}
-• Manual Upgrade Helper: ${chalk.underline.dim(
-        `${repos[repoName].webDiffUrl}/?from=${currentVersion}&to=${newVersion}`,
-      )}
-• Git diff: ${chalk.underline.dim(
-        `${repos[repoName].rawDiffUrl}/${currentVersion}..${newVersion}.diff`,
-      )}`);
+  • Release notes: ${chalk.underline.dim(
+    `https://github.com/facebook/react-native/releases/tag/v${newVersion}`,
+  )}
+  • Manual Upgrade Helper: ${chalk.underline.dim(
+    `${repos[repoName].webDiffUrl}/?from=${currentVersion}&to=${newVersion}`,
+  )}
+  • Git diff: ${chalk.underline.dim(
+    `${repos[repoName].rawDiffUrl}/${currentVersion}..${newVersion}.diff`,
+  )}`);
 
       throw new CLIError(
         'Upgrade failed. Please see the messages above for details',
