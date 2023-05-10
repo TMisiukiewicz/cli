@@ -3,7 +3,7 @@ import {getConfig} from '@expo/config';
 import {ModPlatform, compileModsAsync} from '@expo/config-plugins';
 import {withAndroidPlugins, withIosPlugins} from './defaultPlugins';
 
-const applyPlugins = async (platforms: ModPlatform[]) => {
+const applyPlugins = async (platforms: ModPlatform[], path?: string) => {
   const {root} = loadConfig();
 
   let {exp: config} = getConfig(root, {
@@ -33,7 +33,7 @@ const applyPlugins = async (platforms: ModPlatform[]) => {
   });
 
   await compileModsAsync(config, {
-    projectRoot: root,
+    projectRoot: path || root,
     platforms,
     assertMissingModProviders: false,
   });

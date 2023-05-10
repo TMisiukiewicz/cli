@@ -7,6 +7,7 @@ import {commands as configPluginsCommands} from '@react-native-community/cli-con
 import profileHermes from '@react-native-community/cli-hermes';
 import upgrade from './upgrade/upgrade';
 import init from './init';
+import version from './version';
 
 export const projectCommands = [
   ...metroCommands,
@@ -15,6 +16,7 @@ export const projectCommands = [
   doctorCommands.info,
   upgrade,
   profileHermes,
+  version,
   ...configPluginsCommands,
 ] as Command[];
 

@@ -166,7 +166,7 @@ const getVersionToUpgradeTo = async (
     return null;
   }
 
-  if (semver.gt(currentVersion, newVersion)) {
+  if (!isUsingPrebuild(projectDir) && semver.gt(currentVersion, newVersion)) {
     logger.error(
       `Trying to upgrade from newer version "${currentVersion}" to older "${newVersion}"`,
     );
@@ -179,7 +179,10 @@ const getVersionToUpgradeTo = async (
 
     const parsedVersion = version.split('@')[version.split('@').length - 1];
 
-    if (semver.satisfies(newVersion, parsedVersion)) {
+    if (
+      !isUsingPrebuild(projectDir) &&
+      semver.satisfies(newVersion, parsedVersion)
+    ) {
       logger.warn(
         `Specified version "${newVersion}" is already installed in node_modules and it satisfies "${parsedVersion}" semver range. No need to upgrade`,
       );
@@ -355,7 +358,6 @@ function alignDeps(
 
   const newDeps = newPackageJson.dependencies || {};
   const newDevDeps = newPackageJson.devDependencies || {};
-  console.log({currentDevDeps, newDevDeps});
 
   const dependencies = Object.keys(newDeps).reduce((acc, dependency) => {
     return {...acc, [dependency]: newDeps[dependency]};
@@ -371,7 +373,7 @@ function alignDeps(
 /**
  * Upgrade application to a new version of React Native.
  */
-async function upgrade(argv: Array<string>, ctx: Config) {
+export async function upgrade(argv: Array<string>, ctx: Config) {
   const tmpPatchFile = 'tmp-upgrade-rn.patch';
   const projectDir = ctx.root;
   const isPrebuild = isUsingPrebuild(projectDir);
@@ -400,6 +402,7 @@ async function upgrade(argv: Array<string>, ctx: Config) {
       path.join(os.tmpdir(), 'rncli-upgrade-template-'),
     );
 
+    logger.info('Installing template package...');
     await installTemplatePackage(
       `react-native@${newVersion}`,
       templateSourceDir,
@@ -422,20 +425,21 @@ async function upgrade(argv: Array<string>, ctx: Config) {
       path.join(templatePath, 'package.json'),
       {encoding: 'utf8'},
     );
+    logger.info('Aligning deps...');
     const alignedPackageJson = alignDeps(
       currentVersionPackageJson,
       newVersionPackageJson,
     );
-
+    logger.info('Updating package.json...');
     fs.writeJsonSync(
       path.join(projectDir, 'package.json'),
       alignedPackageJson,
       {encoding: 'utf8', spaces: 2},
     );
-
+    logger.info('Installing new dependencies...');
     PackageManager.installAll({
       preferYarn: true,
-      silent: false,
+      silent: true,
       root: projectDir,
     });
 

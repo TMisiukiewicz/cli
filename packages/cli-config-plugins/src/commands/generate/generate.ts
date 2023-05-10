@@ -152,19 +152,25 @@ export const generateNativeProjects = async (
   }
 };
 
-const overwritePlaceholders = async (
+export const overwritePlaceholders = async (
   platform: 'ios' | 'android',
   cachedName: string,
   appName: string,
+  projectRoot?: string,
 ) => {
-  process.chdir(platform);
+  const originalRoot = process.cwd();
+  process.chdir(
+    projectRoot ? `${projectRoot}/${platform}` : `${originalRoot}/${platform}`,
+  );
+
   await editTemplate.changePlaceholderInTemplate({
     projectName: appName,
     projectTitle: appName,
     placeholderTitle: 'Hello App Display Name',
     placeholderName: cachedName !== appName ? appName : 'HelloWorld',
   });
-  process.chdir('..');
+
+  process.chdir(originalRoot);
 };
 
 export default generate;

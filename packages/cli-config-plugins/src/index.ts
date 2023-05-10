@@ -1,7 +1,17 @@
 import generate from './commands/generate';
 
-export {generateNativeProjects} from './commands/generate/generate';
-export {updateGitignore, isUsingPrebuild, removeGeneratedFiles} from './utils';
+export {
+  generateNativeProjects,
+  overwritePlaceholders,
+} from './commands/generate/generate';
+export {
+  updateGitignore,
+  isUsingPrebuild,
+  removeGeneratedFiles,
+  applyPlugins,
+  copyTemplateFiles,
+  getCacheFile,
+} from './utils';
 
 export * from '@expo/config';
 
