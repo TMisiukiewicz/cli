@@ -8,6 +8,8 @@ export function shouldExcludePath(path: string): boolean {
     'Podfile.lock',
     'project.pbxproj',
     '.xcworkspace',
+    'app/build',
+    '.gradle',
   ];
   for (const excludedPath of excludedPaths) {
     if (path.includes(excludedPath)) {

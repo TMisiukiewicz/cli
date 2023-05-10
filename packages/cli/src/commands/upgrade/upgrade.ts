@@ -5,7 +5,12 @@ import chalk from 'chalk';
 import semver from 'semver';
 import execa from 'execa';
 import {Config} from '@react-native-community/cli-types';
-import {logger, CLIError, fetch} from '@react-native-community/cli-tools';
+import {
+  logger,
+  CLIError,
+  fetch,
+  getLoader,
+} from '@react-native-community/cli-tools';
 import * as PackageManager from '../../tools/packageManager';
 import {installPods} from '@react-native-community/cli-doctor';
 import {
@@ -385,29 +390,25 @@ export async function upgrade(argv: Array<string>, ctx: Config) {
   const repoName: RepoNameType =
     rnName === 'react-native-tvos' ? 'react-native-tvos' : 'react-native';
 
-  const newVersion = await getVersionToUpgradeTo(
-    argv,
-    currentVersion,
-    projectDir,
-    repoName,
-  );
-
-  if (!newVersion) {
-    return;
-  }
-
   if (isPrebuild) {
+    const loader = getLoader({text: 'Installing template package...'});
     removeGeneratedFiles(projectDir, {keepCache: true});
     const templateSourceDir = fs.mkdtempSync(
       path.join(os.tmpdir(), 'rncli-upgrade-template-'),
     );
 
-    logger.info('Installing template package...');
-    await installTemplatePackage(
-      `react-native@${newVersion}`,
-      templateSourceDir,
-      false,
-    );
+    try {
+      loader.start();
+      await installTemplatePackage(
+        `react-native@${argv[0]}`,
+        templateSourceDir,
+        false,
+      );
+      loader.succeed();
+    } catch {
+      loader.fail();
+      throw new CLIError('Failed to install template package.');
+    }
 
     const templateName = getTemplateName(templateSourceDir);
     const templateConfig = getTemplateConfig(templateName, templateSourceDir);
@@ -425,111 +426,136 @@ export async function upgrade(argv: Array<string>, ctx: Config) {
       path.join(templatePath, 'package.json'),
       {encoding: 'utf8'},
     );
-    logger.info('Aligning deps...');
-    const alignedPackageJson = alignDeps(
-      currentVersionPackageJson,
-      newVersionPackageJson,
-    );
-    logger.info('Updating package.json...');
-    fs.writeJsonSync(
-      path.join(projectDir, 'package.json'),
-      alignedPackageJson,
-      {encoding: 'utf8', spaces: 2},
-    );
-    logger.info('Installing new dependencies...');
-    PackageManager.installAll({
-      preferYarn: true,
-      silent: true,
-      root: projectDir,
-    });
+    try {
+      loader.start('Aligning deps...');
+      const alignedPackageJson = alignDeps(
+        currentVersionPackageJson,
+        newVersionPackageJson,
+      );
+      fs.writeJsonSync(
+        path.join(projectDir, 'package.json'),
+        alignedPackageJson,
+        {encoding: 'utf8', spaces: 2},
+      );
+      loader.succeed();
+    } catch {
+      loader.fail();
+      throw new CLIError('Unable to align dependencies.');
+    }
+
+    try {
+      loader.start('Installing dependencies...');
+      PackageManager.installAll({
+        preferYarn: true, //TODO flag
+        silent: true,
+        root: projectDir,
+      });
+      loader.succeed();
+    } catch {
+      loader.fail();
+      throw new CLIError(
+        'Unable to install dependencies. Please run yarn/npm install manually.',
+      );
+    }
 
     return;
-  }
+  } else {
+    const newVersion = await getVersionToUpgradeTo(
+      argv,
+      currentVersion,
+      projectDir,
+      repoName,
+    );
 
-  const patch = await getPatch(currentVersion, newVersion, ctx, repoName);
+    if (!newVersion) {
+      return;
+    }
 
-  if (patch === null) {
-    return;
-  }
+    const patch = await getPatch(currentVersion, newVersion, ctx, repoName);
 
-  if (patch === '') {
-    logger.info('Diff has no changes to apply, proceeding further');
-    await installDeps(projectDir, newVersion, repoName);
-    await installCocoaPodsDeps(projectDir);
+    if (patch === null) {
+      return;
+    }
 
+    if (patch === '') {
+      logger.info('Diff has no changes to apply, proceeding further');
+      await installDeps(projectDir, newVersion, repoName);
+      await installCocoaPodsDeps(projectDir);
+
+      logger.success(
+        `Upgraded React Native to v${newVersion} 🎉. Now you can review and commit the changes`,
+      );
+      return;
+    }
+    let patchSuccess;
+
+    try {
+      fs.writeFileSync(tmpPatchFile, patch);
+      patchSuccess = await applyPatch(
+        currentVersion,
+        newVersion,
+        tmpPatchFile,
+        repoName,
+      );
+    } catch (error) {
+      throw new Error((error as UpgradeError).stderr || (error as string));
+    } finally {
+      try {
+        fs.unlinkSync(tmpPatchFile);
+      } catch (e) {
+        // ignore
+      }
+      const {stdout} = await execa('git', ['status', '-s']);
+      if (!patchSuccess) {
+        if (stdout) {
+          logger.warn(
+            'Continuing after failure. Some of the files are upgraded but you will need to deal with conflicts manually',
+          );
+          await installDeps(projectDir, newVersion, repoName);
+          logger.info('Running "git status" to check what changed...');
+          await execa('git', ['status'], {stdio: 'inherit'});
+        } else {
+          logger.error(
+            'Patch failed to apply for unknown reason. Please fall back to manual way of upgrading',
+          );
+        }
+      } else {
+        await installDeps(projectDir, newVersion, repoName);
+        await installCocoaPodsDeps(projectDir);
+        logger.info('Running "git status" to check what changed...');
+        await execa('git', ['status'], {stdio: 'inherit'});
+      }
+      if (!patchSuccess) {
+        if (stdout) {
+          logger.warn(
+            'Please run "git diff" to review the conflicts and resolve them',
+          );
+        }
+        if (process.platform === 'darwin') {
+          logger.warn(
+            'After resolving conflicts don\'t forget to run "pod install" inside "ios" directory',
+          );
+        }
+        logger.info(`You may find these resources helpful:
+    • Release notes: ${chalk.underline.dim(
+      `https://github.com/facebook/react-native/releases/tag/v${newVersion}`,
+    )}
+    • Manual Upgrade Helper: ${chalk.underline.dim(
+      `${repos[repoName].webDiffUrl}/?from=${currentVersion}&to=${newVersion}`,
+    )}
+    • Git diff: ${chalk.underline.dim(
+      `${repos[repoName].rawDiffUrl}/${currentVersion}..${newVersion}.diff`,
+    )}`);
+
+        throw new CLIError(
+          'Upgrade failed. Please see the messages above for details',
+        );
+      }
+    }
     logger.success(
       `Upgraded React Native to v${newVersion} 🎉. Now you can review and commit the changes`,
     );
-    return;
   }
-  let patchSuccess;
-
-  try {
-    fs.writeFileSync(tmpPatchFile, patch);
-    patchSuccess = await applyPatch(
-      currentVersion,
-      newVersion,
-      tmpPatchFile,
-      repoName,
-    );
-  } catch (error) {
-    throw new Error((error as UpgradeError).stderr || (error as string));
-  } finally {
-    try {
-      fs.unlinkSync(tmpPatchFile);
-    } catch (e) {
-      // ignore
-    }
-    const {stdout} = await execa('git', ['status', '-s']);
-    if (!patchSuccess) {
-      if (stdout) {
-        logger.warn(
-          'Continuing after failure. Some of the files are upgraded but you will need to deal with conflicts manually',
-        );
-        await installDeps(projectDir, newVersion, repoName);
-        logger.info('Running "git status" to check what changed...');
-        await execa('git', ['status'], {stdio: 'inherit'});
-      } else {
-        logger.error(
-          'Patch failed to apply for unknown reason. Please fall back to manual way of upgrading',
-        );
-      }
-    } else {
-      await installDeps(projectDir, newVersion, repoName);
-      await installCocoaPodsDeps(projectDir);
-      logger.info('Running "git status" to check what changed...');
-      await execa('git', ['status'], {stdio: 'inherit'});
-    }
-    if (!patchSuccess) {
-      if (stdout) {
-        logger.warn(
-          'Please run "git diff" to review the conflicts and resolve them',
-        );
-      }
-      if (process.platform === 'darwin') {
-        logger.warn(
-          'After resolving conflicts don\'t forget to run "pod install" inside "ios" directory',
-        );
-      }
-      logger.info(`You may find these resources helpful:
-  • Release notes: ${chalk.underline.dim(
-    `https://github.com/facebook/react-native/releases/tag/v${newVersion}`,
-  )}
-  • Manual Upgrade Helper: ${chalk.underline.dim(
-    `${repos[repoName].webDiffUrl}/?from=${currentVersion}&to=${newVersion}`,
-  )}
-  • Git diff: ${chalk.underline.dim(
-    `${repos[repoName].rawDiffUrl}/${currentVersion}..${newVersion}.diff`,
-  )}`);
-
-      throw new CLIError(
-        'Upgrade failed. Please see the messages above for details',
-      );
-    }
-  }
-  logger.success(
-    `Upgraded React Native to v${newVersion} 🎉. Now you can review and commit the changes`,
-  );
 }
 const upgradeCommand = {
   name: 'upgrade [version]',
