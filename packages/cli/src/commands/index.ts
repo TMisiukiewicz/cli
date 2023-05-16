@@ -6,6 +6,7 @@ import {commands as metroCommands} from '@react-native-community/cli-plugin-metr
 import profileHermes from '@react-native-community/cli-hermes';
 import upgrade from './upgrade/upgrade';
 import init from './init';
+import integrate from './integrate';
 
 export const projectCommands = [
   ...metroCommands,
@@ -19,4 +20,5 @@ export const projectCommands = [
 export const detachedCommands = [
   init,
   doctorCommands.doctor,
+  integrate,
 ] as DetachedCommand[];
