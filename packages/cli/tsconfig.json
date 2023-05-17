@@ -13,6 +13,7 @@
     {"path": "../cli-server-api"},
     {"path": "../cli-types"},
     {"path": "../cli-debugger-ui"},
-    {"path": "../cli-tools"}
+    {"path": "../cli-tools"},
+    {"path": "../cli-config-plugins"}
   ]
 }

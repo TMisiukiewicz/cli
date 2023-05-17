@@ -5,6 +5,8 @@ import prompts from 'prompts';
 import fs from 'fs-extra';
 import execa from 'execa';
 import {Ora} from 'ora';
+import applyPlugins from './utils/applyPlugins';
+import copyEntryFiles from './utils/copyEntryFiles';
 
 interface IntegrateArgs {
   platform: 'android' | 'ios';
@@ -137,9 +139,11 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
     );
   }
 
-  resolvePackageJson(projectRoot, args);
-  addDependencies(projectRoot, args, loader);
-  resolveGitignore(projectRoot);
+  await resolvePackageJson(projectRoot, args);
+  await addDependencies(projectRoot, args, loader);
+  await resolveGitignore(projectRoot);
+  await applyPlugins(projectRoot, loader);
+  copyEntryFiles(projectRoot);
 }
 
 export default {

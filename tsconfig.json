@@ -19,7 +19,8 @@
     /* Module Resolution Options */
     "moduleResolution": "node",
     "esModuleInterop": true,
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "skipLibCheck": true,
   },
   "exclude": ["**/__tests__/**/*", "**/build/**/*"]
 }
