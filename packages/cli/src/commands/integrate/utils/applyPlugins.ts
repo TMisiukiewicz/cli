@@ -1,12 +1,17 @@
 import {Ora} from 'ora';
 import {
-  compileModsAsync,
+  ConfigPlugins,
   getConfig,
 } from '@react-native-community/cli-config-plugins';
 import {CLIError} from '@react-native-community/cli-tools';
-import {withAndroidDefaultPlugins} from '../plugins/withDefaultPlugins';
+import {withAndroidDefaultPlugins} from '../plugins/withAndroidDefaultPlugins';
+import {withIosDefaultPlugins} from '../plugins/withIosDefaultPlugins';
 
-const applyPlugins = async (path: string, loader: Ora) => {
+const applyPlugins = async (
+  path: string,
+  platform: 'android' | 'ios',
+  loader: Ora,
+) => {
   loader.start('Applying platform-specific modifications...');
   try {
     let {exp: config} = getConfig(path, {
@@ -15,10 +20,11 @@ const applyPlugins = async (path: string, loader: Ora) => {
     });
 
     config = withAndroidDefaultPlugins(config);
+    config = withIosDefaultPlugins(config);
 
-    await compileModsAsync(config, {
+    await ConfigPlugins.compileModsAsync(config, {
       projectRoot: path,
-      platforms: ['android'],
+      platforms: [platform],
       assertMissingModProviders: false,
     });
     loader.succeed();

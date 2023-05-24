@@ -1,9 +1,8 @@
 import {
   ConfigPlugin,
-  // withProjectBuildGradle,
+  withProjectBuildGradle,
   withSettingsGradle,
 } from '@expo/config-plugins';
-// import g2js from 'gradle-to-js/lib/parser';
 
 export const applyToGradleSettings = (
   settingsGradle: string,
@@ -27,13 +26,35 @@ export const withReactNativeGradlePlugin: ConfigPlugin = (config) => {
     return newConfig;
   });
 
-  // config = withProjectBuildGradle(config, async (newConfig) => {
-  //   newConfig.modResults.contents = await applyToBuildGradle(
-  //     newConfig.modResults.contents,
-  //   );
+  config = withProjectBuildGradle(config, async (newConfig) => {
+    const buildscriptExists = newConfig.modResults.contents.includes(
+      'buildscript {',
+    );
+    const dependenciesExist = newConfig.modResults.contents.includes(
+      'dependencies {',
+    );
 
-  //   return newConfig;
-  // });
+    if (buildscriptExists) {
+      if (dependenciesExist) {
+        newConfig.modResults.contents = newConfig.modResults.contents.replace(
+          'dependencies {',
+          'dependencies {\n\t\tclasspath("com.facebook.react:react-native-gradle-plugin")',
+        );
+      } else {
+        newConfig.modResults.contents = newConfig.modResults.contents.replace(
+          'buildscript {',
+          'buildscript {\n\tdependencies {\n\t\tclasspath("com.facebook.react:react-native-gradle-plugin")\n}',
+        );
+      }
+    } else {
+      newConfig.modResults.contents = newConfig.modResults.contents.replace(
+        /^/,
+        'buildscript {\n\tdependencies {\n\t\tclasspath("com.facebook.react:react-native-gradle-plugin")\n}',
+      );
+    }
+
+    return newConfig;
+  });
 
   return config;
 };

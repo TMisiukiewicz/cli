@@ -1,11 +1,11 @@
 import {
-  ConfigPlugin,
-  withPlugins,
+  ConfigPlugins,
+  Plugins,
 } from '@react-native-community/cli-config-plugins';
-import {Plugins} from '@react-native-community/cli-config-plugins';
 
-export const withAndroidDefaultPlugins: ConfigPlugin = (config) =>
-  withPlugins(config, [
+export const withAndroidDefaultPlugins: ConfigPlugins.ConfigPlugin = (config) =>
+  ConfigPlugins.withPlugins(config, [
+    Plugins.withReactPlugin,
     Plugins.withReactNativeGradlePlugin,
     Plugins.withAutolinking,
     Plugins.withDefaultBrownfieldPermissions,

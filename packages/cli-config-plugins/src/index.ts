@@ -1,5 +1,6 @@
 import * as Plugins from './plugins';
+import * as Utils from './utils';
 export * from '@expo/config';
-export * from '@expo/config-plugins';
+export * as ConfigPlugins from '@expo/config-plugins';
 
-export {Plugins};
+export {Plugins, Utils};

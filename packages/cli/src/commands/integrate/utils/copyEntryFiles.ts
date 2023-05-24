@@ -9,7 +9,7 @@ export default (projectRoot: string) => {
     'react-native',
     'template',
   );
-  const filesToCopy = ['index.js', 'App.tsx', 'app.json'];
+  const filesToCopy = ['index.js', 'app.json'];
 
   if (!fs.existsSync(templatePath)) {
     throw new CLIError(

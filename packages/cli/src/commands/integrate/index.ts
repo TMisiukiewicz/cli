@@ -1,15 +1,27 @@
+//@ts-nocheck
 import {CLIError, getLoader} from '@react-native-community/cli-tools';
 import {Config} from '@react-native-community/cli-types';
+import {ConfigPlugins} from '@react-native-community/cli-config-plugins';
 import path from 'path';
 import prompts from 'prompts';
 import fs from 'fs-extra';
 import execa from 'execa';
 import {Ora} from 'ora';
+import semver from 'semver';
 import applyPlugins from './utils/applyPlugins';
 import copyEntryFiles from './utils/copyEntryFiles';
+import {SemVer} from 'semver';
 
+const MIN_SUPPORTED_IOS_DEPLOYMENT_TARGET = '10.0';
+
+const IOS_DEPLOYMENT_TARGETS_RN_VERSIONS = {
+  '12.4': ['0.69', '0.70', '0.71', '0.72'],
+  '11.0': ['0.68'],
+  '10.0': ['0.64', '0.65', '0.66', '0.67'],
+};
 interface IntegrateArgs {
   platform: 'android' | 'ios';
+  version?: string;
   npm?: boolean;
 }
 
@@ -25,6 +37,82 @@ async function resolveGitignore(root: string) {
       encoding: 'utf-8',
     });
   }
+}
+
+async function initPods(root: string) {
+  const podfilePath = path.join(root, 'ios', 'Podfile');
+  const iosPath = path.join(root, 'ios');
+
+  if (!fs.existsSync(podfilePath)) {
+    try {
+      process.chdir(iosPath);
+      await execa('pod', ['init']);
+      process.chdir(root);
+    } catch {
+      process.chdir(root);
+      throw new CLIError('Failed to initialize Podfile');
+    }
+  }
+}
+
+async function getMinDeploymentTarget(root: string) {
+  const iosPath = path.join(root, 'ios');
+  process.chdir(iosPath);
+
+  try {
+    const pbxFile = ConfigPlugins.IOSConfig.XcodeUtils.getPbxproj(root);
+    const configurations = pbxFile.pbxXCBuildConfigurationSection();
+
+    let minDeploymentTarget = '14.3';
+
+    for (const {buildSettings} of Object.values(configurations || {})) {
+      if (typeof buildSettings?.IPHONEOS_DEPLOYMENT_TARGET !== 'undefined') {
+        minDeploymentTarget = buildSettings.IPHONEOS_DEPLOYMENT_TARGET;
+      }
+    }
+
+    process.chdir(root);
+
+    return minDeploymentTarget;
+  } catch (error) {
+    process.chdir(root);
+    throw new CLIError('Failed to read iOS project dump');
+  }
+}
+
+async function checkCocoapods(root: string) {
+  const iosPath = path.join(root, 'ios');
+  process.chdir(iosPath);
+
+  try {
+    const {stdout} = await execa('pod', ['--version']);
+    process.chdir(root);
+
+    return stdout;
+  } catch (error) {
+    process.chdir(root);
+    throw Error(
+      'Cocoapods is not installed. Please install it first: https://cocoapods.org/',
+    );
+  }
+}
+
+async function copyPodfile(root: string) {
+  const content = `
+  require_relative '../node_modules/react-native/scripts/react_native_pods'
+  require_relative '../node_modules/@react-native-community/cli-platform-ios/native_modules'
+  
+  def include_react_native
+      config = use_native_modules!
+      use_react_native!(
+      :path => config[:reactNativePath],
+      # An absolute path to your application root.
+      :app_path => "#{Pod::Config.instance.installation_root}/.."
+      )
+  end`;
+  const destinationPath = path.join(root, 'ios', 'include_native_native.rb');
+
+  fs.writeFileSync(destinationPath, content, {encoding: 'utf-8'});
 }
 
 async function resolvePackageJson(root: string, args: IntegrateArgs) {
@@ -64,7 +152,7 @@ async function addDependencies(root: string, args: IntegrateArgs, loader: Ora) {
   try {
     await execa(args.npm ? 'npm' : 'yarn', [
       args.npm ? 'install' : 'add',
-      'react-native',
+      args.version ? `react-native@^${args.version}` : 'react-native',
     ]);
     const {stdout} = await execa(args.npm ? 'npm' : 'yarn', [
       args.npm ? 'view' : 'info',
@@ -111,6 +199,51 @@ async function promptPlatformSelection() {
   return platform;
 }
 
+function compareDeploymentTargets(
+  appMajorVersion: string,
+  rnMajorVersion: string,
+) {
+  if (
+    semver.major(semver.coerce(appMajorVersion)) <
+    semver.major(semver.coerce(rnMajorVersion))
+  ) {
+    throw new Error(
+      `iOS deployment target version is ${appMajorVersion} and it should be minimum ${rnMajorVersion}. Please upgrade your iOS version before continuing.`,
+    );
+  }
+}
+
+function getMinimumSupportedVersion(minDeploymentTarget: string) {
+  for (const version of Object.keys(IOS_DEPLOYMENT_TARGETS_RN_VERSIONS)) {
+    const v1 = semver.coerce(minDeploymentTarget) as SemVer;
+    const v2 = semver.coerce(version) as SemVer;
+
+    if (semver.compare(v1, v2) === 1) {
+      return {...v2, original: version};
+    }
+  }
+
+  return minDeploymentTarget;
+}
+
+async function promptForReactNativeVersion(
+  minDeploymentTarget: keyof typeof IOS_DEPLOYMENT_TARGETS_RN_VERSIONS,
+) {
+  const {version} = await prompts({
+    type: 'select',
+    name: 'version',
+    message: 'Select a React Native version compatible with your iOS project',
+    choices: IOS_DEPLOYMENT_TARGETS_RN_VERSIONS[minDeploymentTarget].map(
+      (v) => ({
+        title: v,
+        value: v,
+      }),
+    ),
+  });
+
+  return version;
+}
+
 async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
   if (ctx) {
     throw new CLIError('This command can only be run outside of a project.');
@@ -120,10 +253,10 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
     throw new CLIError('Please specify a platform to integrate with.');
   }
 
-  const loader = getLoader({text: 'Installing dependencies...'});
   const projectRoot = process.cwd();
+  const loader = getLoader();
 
-  let platform: string;
+  let platform: 'android' | 'ios';
 
   if (typeof args.platform !== 'string') {
     platform = await promptPlatformSelection();
@@ -139,10 +272,54 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
     );
   }
 
+  let rnVersion: string | undefined;
+  if (args.platform === 'ios') {
+    loader.start('Checking cocoapods version...');
+    const cocoapodsVersion = await checkCocoapods(projectRoot);
+    loader.succeed(`Found CocoaPods version: ${cocoapodsVersion}`);
+
+    loader.start('Checking iOS deployment target...');
+    const minDeploymentTarget = await getMinDeploymentTarget(projectRoot);
+    const minSupportedRnTarget = getMinimumSupportedVersion(
+      minDeploymentTarget,
+    );
+    compareDeploymentTargets(
+      minDeploymentTarget,
+      MIN_SUPPORTED_IOS_DEPLOYMENT_TARGET,
+    );
+    if (
+      IOS_DEPLOYMENT_TARGETS_RN_VERSIONS[minSupportedRnTarget.original]
+        .length === 1
+    ) {
+      loader.succeed(
+        `Your deployment target is ${minDeploymentTarget}. There is only one React Native version compatible with your target: ${
+          IOS_DEPLOYMENT_TARGETS_RN_VERSIONS[minSupportedRnTarget.original][0]
+        }.`,
+      );
+      rnVersion =
+        IOS_DEPLOYMENT_TARGETS_RN_VERSIONS[minSupportedRnTarget.original][0];
+    } else {
+      rnVersion = await promptForReactNativeVersion(
+        minSupportedRnTarget.original,
+      );
+    }
+  }
+
+  if (loader.isSpinning) {
+    loader.succeed();
+  }
+
+  loader.start('Adding required dependencies...');
   await resolvePackageJson(projectRoot, args);
-  await addDependencies(projectRoot, args, loader);
+  await addDependencies(projectRoot, {...args, version: rnVersion}, loader);
   await resolveGitignore(projectRoot);
-  await applyPlugins(projectRoot, loader);
+  loader.succeed();
+  if (platform === 'ios') {
+    await initPods(projectRoot);
+    await copyPodfile(projectRoot);
+  }
+
+  await applyPlugins(projectRoot, platform, loader);
   copyEntryFiles(projectRoot);
 }
 
@@ -154,6 +331,10 @@ export default {
     {
       name: '--platform [string]',
       description: 'Platform you want to integrate with React Native',
+    },
+    {
+      name: '--version [string]',
+      description: 'Version of React Native to install',
     },
     {
       name: '--npm',
