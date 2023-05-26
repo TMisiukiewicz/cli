@@ -1,5 +1,5 @@
 //@ts-nocheck
-import {CLIError, getLoader} from '@react-native-community/cli-tools';
+import {CLIError, getLoader, logger} from '@react-native-community/cli-tools';
 import {Config} from '@react-native-community/cli-types';
 import {ConfigPlugins} from '@react-native-community/cli-config-plugins';
 import path from 'path';
@@ -11,6 +11,7 @@ import semver from 'semver';
 import applyPlugins from './utils/applyPlugins';
 import copyEntryFiles from './utils/copyEntryFiles';
 import {SemVer} from 'semver';
+import g2js from 'gradle-to-js/lib/parser';
 
 const MIN_SUPPORTED_IOS_DEPLOYMENT_TARGET = '10.0';
 
@@ -19,6 +20,21 @@ const IOS_DEPLOYMENT_TARGETS_RN_VERSIONS = {
   '11.0': ['0.68'],
   '10.0': ['0.64', '0.65', '0.66', '0.67'],
 };
+
+const ANDROID_COMPILE_SDK_VERSIONS = {
+  '33': ['0.71'],
+  '31': ['0.68, 0.69, 0.70'],
+  '30': ['0.65', '0.66', '0.67'],
+  '29': ['0.64'],
+};
+
+export interface BrownfieldConfig {
+  android: string;
+  androidApp: string;
+  androidManifest: string;
+  ios: string;
+}
+
 interface IntegrateArgs {
   platform: 'android' | 'ios';
   version?: string;
@@ -39,9 +55,9 @@ async function resolveGitignore(root: string) {
   }
 }
 
-async function initPods(root: string) {
-  const podfilePath = path.join(root, 'ios', 'Podfile');
-  const iosPath = path.join(root, 'ios');
+async function initPods(root: string, customIosPath?: string) {
+  const iosPath = customIosPath || path.join(root, 'ios');
+  const podfilePath = path.join(iosPath, 'Podfile');
 
   if (!fs.existsSync(podfilePath)) {
     try {
@@ -55,8 +71,8 @@ async function initPods(root: string) {
   }
 }
 
-async function getMinDeploymentTarget(root: string) {
-  const iosPath = path.join(root, 'ios');
+async function getMinDeploymentTarget(root: string, customIosPath?: string) {
+  const iosPath = customIosPath || path.join(root, 'ios');
   process.chdir(iosPath);
 
   try {
@@ -80,8 +96,8 @@ async function getMinDeploymentTarget(root: string) {
   }
 }
 
-async function checkCocoapods(root: string) {
-  const iosPath = path.join(root, 'ios');
+async function checkCocoapods(root: string, customIosPath?: string) {
+  const iosPath = customIosPath || path.join(root, 'ios');
   process.chdir(iosPath);
 
   try {
@@ -97,7 +113,7 @@ async function checkCocoapods(root: string) {
   }
 }
 
-async function copyPodfile(root: string) {
+async function copyPodfile(iosPath: string) {
   const content = `
   require_relative '../node_modules/react-native/scripts/react_native_pods'
   require_relative '../node_modules/@react-native-community/cli-platform-ios/native_modules'
@@ -110,7 +126,7 @@ async function copyPodfile(root: string) {
       :app_path => "#{Pod::Config.instance.installation_root}/.."
       )
   end`;
-  const destinationPath = path.join(root, 'ios', 'include_native_native.rb');
+  const destinationPath = path.join(iosPath, 'include_react_native.rb');
 
   fs.writeFileSync(destinationPath, content, {encoding: 'utf-8'});
 }
@@ -152,7 +168,7 @@ async function addDependencies(root: string, args: IntegrateArgs, loader: Ora) {
   try {
     await execa(args.npm ? 'npm' : 'yarn', [
       args.npm ? 'install' : 'add',
-      args.version ? `react-native@^${args.version}` : 'react-native',
+      args.version ? `react-native@^${args.version}.0` : 'react-native',
     ]);
     const {stdout} = await execa(args.npm ? 'npm' : 'yarn', [
       args.npm ? 'view' : 'info',
@@ -213,6 +229,16 @@ function compareDeploymentTargets(
   }
 }
 
+async function getAndroidCompileSdkVersion(androidAppPath: string) {
+  const appBuildGradlePath = path.join(androidAppPath, 'build.gradle');
+  if (!fs.existsSync(appBuildGradlePath)) {
+    throw new Error('app-level build.gradle file not found');
+  }
+
+  const buildGradle = await g2js.parseFile(appBuildGradlePath);
+  return buildGradle.android.compileSdkVersion;
+}
+
 function getMinimumSupportedVersion(minDeploymentTarget: string) {
   for (const version of Object.keys(IOS_DEPLOYMENT_TARGETS_RN_VERSIONS)) {
     const v1 = semver.coerce(minDeploymentTarget) as SemVer;
@@ -226,7 +252,7 @@ function getMinimumSupportedVersion(minDeploymentTarget: string) {
   return minDeploymentTarget;
 }
 
-async function promptForReactNativeVersion(
+async function promptForIosReactNativeVersion(
   minDeploymentTarget: keyof typeof IOS_DEPLOYMENT_TARGETS_RN_VERSIONS,
 ) {
   const {version} = await prompts({
@@ -242,6 +268,61 @@ async function promptForReactNativeVersion(
   });
 
   return version;
+}
+
+async function promptForAndroidReactNativeVersion(
+  minDeploymentTarget: keyof typeof ANDROID_COMPILE_SDK_VERSIONS,
+) {
+  const {version} = await prompts({
+    type: 'select',
+    name: 'version',
+    message:
+      'Select a React Native version compatible with your Android project',
+    choices: ANDROID_COMPILE_SDK_VERSIONS[minDeploymentTarget].map((v) => ({
+      title: v,
+      value: v,
+    })),
+  });
+
+  return version;
+}
+
+async function getBrownfieldConfig(
+  projectRoot: string,
+): Promise<Partial<BrownfieldConfig>> {
+  const brownfieldConfigFile = path.join(projectRoot, 'brownfield.json');
+
+  const defaultConfig = {
+    android: path.join(projectRoot, 'android'),
+    androidApp: path.join(projectRoot, 'android', 'app'),
+    androidManifest: path.join(
+      projectRoot,
+      'android',
+      'app',
+      'src',
+      'main',
+      'AndroidManifest.xml',
+    ),
+    ios: path.join(projectRoot, 'ios'),
+  };
+
+  if (fs.existsSync(brownfieldConfigFile)) {
+    logger.info('Found brownfield config file');
+    const brownfieldConfig = fs.readFileSync(brownfieldConfigFile, {
+      encoding: 'utf-8',
+    });
+
+    const parsedConfig = JSON.parse(brownfieldConfig);
+    const config = defaultConfig;
+
+    Object.keys(parsedConfig).forEach(
+      (key) => (config[key] = path.join(projectRoot, parsedConfig[key])),
+    );
+
+    return config;
+  }
+
+  return defaultConfig;
 }
 
 async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
@@ -273,9 +354,32 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
   }
 
   let rnVersion: string | undefined;
+  const brownfieldConfig = await getBrownfieldConfig(projectRoot);
+  console.log(brownfieldConfig);
+
+  if (args.platform === 'android') {
+    const compileSdkVersion = await getAndroidCompileSdkVersion(
+      brownfieldConfig.androidApp,
+    );
+    if (
+      !Object.keys(ANDROID_COMPILE_SDK_VERSIONS).includes(compileSdkVersion)
+    ) {
+      throw new CLIError(
+        'Your compile SDK version is not supported. Please upgrade your Android version before continuing.',
+      );
+    } else if (ANDROID_COMPILE_SDK_VERSIONS[compileSdkVersion].length === 1) {
+      rnVersion = ANDROID_COMPILE_SDK_VERSIONS[compileSdkVersion][0];
+    } else {
+      rnVersion = await promptForAndroidReactNativeVersion(compileSdkVersion);
+    }
+  }
+
   if (args.platform === 'ios') {
     loader.start('Checking cocoapods version...');
-    const cocoapodsVersion = await checkCocoapods(projectRoot);
+    const cocoapodsVersion = await checkCocoapods(
+      projectRoot,
+      brownfieldConfig.ios,
+    );
     loader.succeed(`Found CocoaPods version: ${cocoapodsVersion}`);
 
     loader.start('Checking iOS deployment target...');
@@ -299,7 +403,7 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
       rnVersion =
         IOS_DEPLOYMENT_TARGETS_RN_VERSIONS[minSupportedRnTarget.original][0];
     } else {
-      rnVersion = await promptForReactNativeVersion(
+      rnVersion = await promptForIosReactNativeVersion(
         minSupportedRnTarget.original,
       );
     }
@@ -314,12 +418,13 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
   await addDependencies(projectRoot, {...args, version: rnVersion}, loader);
   await resolveGitignore(projectRoot);
   loader.succeed();
+
   if (platform === 'ios') {
     await initPods(projectRoot);
-    await copyPodfile(projectRoot);
+    await copyPodfile(brownfieldConfig.ios);
   }
 
-  await applyPlugins(projectRoot, platform, loader);
+  await applyPlugins(projectRoot, platform, loader, rnVersion);
   copyEntryFiles(projectRoot);
 }
 

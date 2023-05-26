@@ -4,13 +4,20 @@ import {
   getConfig,
 } from '@react-native-community/cli-config-plugins';
 import {CLIError} from '@react-native-community/cli-tools';
+import semver from 'semver';
 import {withAndroidDefaultPlugins} from '../plugins/withAndroidDefaultPlugins';
 import {withIosDefaultPlugins} from '../plugins/withIosDefaultPlugins';
+import {BrownfieldConfig} from '..';
+
+interface PluginsConfig extends BrownfieldConfig {
+  rnVersion: string;
+}
 
 const applyPlugins = async (
   path: string,
   platform: 'android' | 'ios',
   loader: Ora,
+  {rnVersion}: PluginsConfig,
 ) => {
   loader.start('Applying platform-specific modifications...');
   try {
@@ -19,7 +26,9 @@ const applyPlugins = async (
       isModdedConfig: true,
     });
 
-    config = withAndroidDefaultPlugins(config);
+    config = withAndroidDefaultPlugins(config, {
+      isJscEnabled: semver.minor(`${rnVersion}.0`) < 71,
+    });
     config = withIosDefaultPlugins(config);
 
     await ConfigPlugins.compileModsAsync(config, {
