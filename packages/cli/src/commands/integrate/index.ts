@@ -1,5 +1,5 @@
 //@ts-nocheck
-import {CLIError, getLoader, logger} from '@react-native-community/cli-tools';
+import {CLIError, getLoader} from '@react-native-community/cli-tools';
 import {Config} from '@react-native-community/cli-types';
 import {ConfigPlugins} from '@react-native-community/cli-config-plugins';
 import path from 'path';
@@ -28,13 +28,6 @@ const ANDROID_COMPILE_SDK_VERSIONS = {
   '29': ['0.64'],
 };
 
-export interface BrownfieldConfig {
-  android: string;
-  androidApp: string;
-  androidManifest: string;
-  ios: string;
-}
-
 interface IntegrateArgs {
   platform: 'android' | 'ios';
   version?: string;
@@ -55,8 +48,8 @@ async function resolveGitignore(root: string) {
   }
 }
 
-async function initPods(root: string, customIosPath?: string) {
-  const iosPath = customIosPath || path.join(root, 'ios');
+async function initPods(root: string) {
+  const iosPath = path.join(root, 'ios');
   const podfilePath = path.join(iosPath, 'Podfile');
 
   if (!fs.existsSync(podfilePath)) {
@@ -71,8 +64,8 @@ async function initPods(root: string, customIosPath?: string) {
   }
 }
 
-async function getMinDeploymentTarget(root: string, customIosPath?: string) {
-  const iosPath = customIosPath || path.join(root, 'ios');
+async function getMinDeploymentTarget(root: string) {
+  const iosPath = path.join(root, 'ios');
   process.chdir(iosPath);
 
   try {
@@ -96,8 +89,8 @@ async function getMinDeploymentTarget(root: string, customIosPath?: string) {
   }
 }
 
-async function checkCocoapods(root: string, customIosPath?: string) {
-  const iosPath = customIosPath || path.join(root, 'ios');
+async function checkCocoapods(root: string) {
+  const iosPath = path.join(root, 'ios');
   process.chdir(iosPath);
 
   try {
@@ -229,8 +222,8 @@ function compareDeploymentTargets(
   }
 }
 
-async function getAndroidCompileSdkVersion(androidAppPath: string) {
-  const appBuildGradlePath = path.join(androidAppPath, 'build.gradle');
+async function getAndroidCompileSdkVersion(projectRoot: string) {
+  const appBuildGradlePath = path.join(projectRoot, 'build.gradle');
   if (!fs.existsSync(appBuildGradlePath)) {
     throw new Error('app-level build.gradle file not found');
   }
@@ -287,44 +280,6 @@ async function promptForAndroidReactNativeVersion(
   return version;
 }
 
-async function getBrownfieldConfig(
-  projectRoot: string,
-): Promise<Partial<BrownfieldConfig>> {
-  const brownfieldConfigFile = path.join(projectRoot, 'brownfield.json');
-
-  const defaultConfig = {
-    android: path.join(projectRoot, 'android'),
-    androidApp: path.join(projectRoot, 'android', 'app'),
-    androidManifest: path.join(
-      projectRoot,
-      'android',
-      'app',
-      'src',
-      'main',
-      'AndroidManifest.xml',
-    ),
-    ios: path.join(projectRoot, 'ios'),
-  };
-
-  if (fs.existsSync(brownfieldConfigFile)) {
-    logger.info('Found brownfield config file');
-    const brownfieldConfig = fs.readFileSync(brownfieldConfigFile, {
-      encoding: 'utf-8',
-    });
-
-    const parsedConfig = JSON.parse(brownfieldConfig);
-    const config = defaultConfig;
-
-    Object.keys(parsedConfig).forEach(
-      (key) => (config[key] = path.join(projectRoot, parsedConfig[key])),
-    );
-
-    return config;
-  }
-
-  return defaultConfig;
-}
-
 async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
   if (ctx) {
     throw new CLIError('This command can only be run outside of a project.');
@@ -354,13 +309,9 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
   }
 
   let rnVersion: string | undefined;
-  const brownfieldConfig = await getBrownfieldConfig(projectRoot);
-  console.log(brownfieldConfig);
 
   if (args.platform === 'android') {
-    const compileSdkVersion = await getAndroidCompileSdkVersion(
-      brownfieldConfig.androidApp,
-    );
+    const compileSdkVersion = await getAndroidCompileSdkVersion();
     if (
       !Object.keys(ANDROID_COMPILE_SDK_VERSIONS).includes(compileSdkVersion)
     ) {
@@ -376,10 +327,7 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
 
   if (args.platform === 'ios') {
     loader.start('Checking cocoapods version...');
-    const cocoapodsVersion = await checkCocoapods(
-      projectRoot,
-      brownfieldConfig.ios,
-    );
+    const cocoapodsVersion = await checkCocoapods(projectRoot);
     loader.succeed(`Found CocoaPods version: ${cocoapodsVersion}`);
 
     loader.start('Checking iOS deployment target...');
@@ -421,7 +369,7 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
 
   if (platform === 'ios') {
     await initPods(projectRoot);
-    await copyPodfile(brownfieldConfig.ios);
+    await copyPodfile(path.join(projectRoot, 'ios'));
   }
 
   await applyPlugins(projectRoot, platform, loader, rnVersion);
