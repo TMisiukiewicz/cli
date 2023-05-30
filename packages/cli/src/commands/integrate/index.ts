@@ -12,6 +12,7 @@ import applyPlugins from './utils/applyPlugins';
 import copyEntryFiles from './utils/copyEntryFiles';
 import {SemVer} from 'semver';
 import g2js from 'gradle-to-js/lib/parser';
+import loadConfig from '@react-native-community/cli-config';
 
 const MIN_SUPPORTED_IOS_DEPLOYMENT_TARGET = '10.0';
 
@@ -223,7 +224,13 @@ function compareDeploymentTargets(
 }
 
 async function getAndroidCompileSdkVersion(projectRoot: string) {
-  const appBuildGradlePath = path.join(projectRoot, 'build.gradle');
+  const appBuildGradlePath = path.join(
+    projectRoot,
+    'android',
+    'app',
+    'build.gradle',
+  );
+
   if (!fs.existsSync(appBuildGradlePath)) {
     throw new Error('app-level build.gradle file not found');
   }
@@ -311,7 +318,7 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
   let rnVersion: string | undefined;
 
   if (args.platform === 'android') {
-    const compileSdkVersion = await getAndroidCompileSdkVersion();
+    const compileSdkVersion = await getAndroidCompileSdkVersion(projectRoot);
     if (
       !Object.keys(ANDROID_COMPILE_SDK_VERSIONS).includes(compileSdkVersion)
     ) {
@@ -364,6 +371,8 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
   loader.start('Adding required dependencies...');
   await resolvePackageJson(projectRoot, args);
   await addDependencies(projectRoot, {...args, version: rnVersion}, loader);
+  const config = loadConfig();
+  console.log(config);
   await resolveGitignore(projectRoot);
   loader.succeed();
 
@@ -372,7 +381,7 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
     await copyPodfile(path.join(projectRoot, 'ios'));
   }
 
-  await applyPlugins(projectRoot, platform, loader, rnVersion);
+  await applyPlugins(projectRoot, platform, loader, {rnVersion});
   copyEntryFiles(projectRoot);
 }
 
