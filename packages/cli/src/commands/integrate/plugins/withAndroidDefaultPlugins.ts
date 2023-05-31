@@ -2,14 +2,16 @@ import {
   ConfigPlugins,
   Plugins,
 } from '@react-native-community/cli-config-plugins';
+import withCustomAndroidManifest from './custom/withCustomAndroidManifest';
 
 interface AndroidDefaultPluginsProps {
   isJscEnabled?: boolean;
+  manifestPath?: string;
 }
 
 export const withAndroidDefaultPlugins: ConfigPlugins.ConfigPlugin<AndroidDefaultPluginsProps> = (
   config,
-  {isJscEnabled},
+  {isJscEnabled, manifestPath},
 ) => {
   return ConfigPlugins.withPlugins(
     config,
@@ -17,15 +19,13 @@ export const withAndroidDefaultPlugins: ConfigPlugins.ConfigPlugin<AndroidDefaul
       ? [
           Plugins.withJscReactPlugin,
           Plugins.withAutolinking,
-          Plugins.withDefaultBrownfieldPermissions,
-          Plugins.withDevSettingsActivity,
+          [withCustomAndroidManifest, {manifestPath}],
         ]
       : [
           Plugins.withReactPlugin,
           Plugins.withReactNativeGradlePlugin,
           Plugins.withAutolinking,
-          Plugins.withDefaultBrownfieldPermissions,
-          Plugins.withDevSettingsActivity,
+          [withCustomAndroidManifest, {manifestPath}],
         ],
   );
 };

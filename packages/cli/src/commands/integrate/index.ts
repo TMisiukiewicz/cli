@@ -372,7 +372,6 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
   await resolvePackageJson(projectRoot, args);
   await addDependencies(projectRoot, {...args, version: rnVersion}, loader);
   const config = loadConfig();
-  console.log(config);
   await resolveGitignore(projectRoot);
   loader.succeed();
 
@@ -381,7 +380,10 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
     await copyPodfile(path.join(projectRoot, 'ios'));
   }
 
-  await applyPlugins(projectRoot, platform, loader, {rnVersion});
+  await applyPlugins(projectRoot, platform, loader, {
+    rnVersion,
+    manifestPath: config.project.android.manifestPath,
+  });
   copyEntryFiles(projectRoot);
 }
 
