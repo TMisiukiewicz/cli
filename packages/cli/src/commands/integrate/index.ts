@@ -1,33 +1,30 @@
 //@ts-nocheck
 import {CLIError, getLoader} from '@react-native-community/cli-tools';
 import {Config} from '@react-native-community/cli-types';
-import {ConfigPlugins} from '@react-native-community/cli-config-plugins';
+import loadConfig from '@react-native-community/cli-config';
 import path from 'path';
 import prompts from 'prompts';
 import fs from 'fs-extra';
 import execa from 'execa';
 import {Ora} from 'ora';
-import semver from 'semver';
 import applyPlugins from './utils/applyPlugins';
 import copyEntryFiles from './utils/copyEntryFiles';
-import {SemVer} from 'semver';
-import g2js from 'gradle-to-js/lib/parser';
-import loadConfig from '@react-native-community/cli-config';
-
-const MIN_SUPPORTED_IOS_DEPLOYMENT_TARGET = '10.0';
-
-const IOS_DEPLOYMENT_TARGETS_RN_VERSIONS = {
-  '12.4': ['0.69', '0.70', '0.71', '0.72'],
-  '11.0': ['0.68'],
-  '10.0': ['0.64', '0.65', '0.66', '0.67'],
-};
-
-const ANDROID_COMPILE_SDK_VERSIONS = {
-  '33': ['0.71'],
-  '31': ['0.68, 0.69, 0.70'],
-  '30': ['0.65', '0.66', '0.67'],
-  '29': ['0.64'],
-};
+import {
+  promptForAndroidReactNativeVersion,
+  promptForAndroidAppPath,
+  promptForAndroidManifestPath,
+  promptForCustomReactNativeVersion,
+} from './utils/androidPrompts';
+import {promptForIosReactNativeVersion} from './utils/iosPrompts';
+import getMinDeploymentTarget from './utils/getMinDeploymentTarget';
+import getMinIosSupportedVersion from './utils/getMinIosSupportedVersion';
+import compareDeploymentTargets from './utils/compareDeploymentTargets';
+import getAndroidCompileSdkVersion from './utils/getAndroidCompileSdkVersion';
+import {
+  IOS_DEPLOYMENT_TARGETS_RN_VERSIONS,
+  ANDROID_COMPILE_SDK_VERSIONS,
+  MIN_SUPPORTED_IOS_DEPLOYMENT_TARGET,
+} from './consts';
 
 interface IntegrateArgs {
   platform: 'android' | 'ios';
@@ -62,31 +59,6 @@ async function initPods(root: string) {
       process.chdir(root);
       throw new CLIError('Failed to initialize Podfile');
     }
-  }
-}
-
-async function getMinDeploymentTarget(root: string) {
-  const iosPath = path.join(root, 'ios');
-  process.chdir(iosPath);
-
-  try {
-    const pbxFile = ConfigPlugins.IOSConfig.XcodeUtils.getPbxproj(root);
-    const configurations = pbxFile.pbxXCBuildConfigurationSection();
-
-    let minDeploymentTarget = '14.3';
-
-    for (const {buildSettings} of Object.values(configurations || {})) {
-      if (typeof buildSettings?.IPHONEOS_DEPLOYMENT_TARGET !== 'undefined') {
-        minDeploymentTarget = buildSettings.IPHONEOS_DEPLOYMENT_TARGET;
-      }
-    }
-
-    process.chdir(root);
-
-    return minDeploymentTarget;
-  } catch (error) {
-    process.chdir(root);
-    throw new CLIError('Failed to read iOS project dump');
   }
 }
 
@@ -209,84 +181,6 @@ async function promptPlatformSelection() {
   return platform;
 }
 
-function compareDeploymentTargets(
-  appMajorVersion: string,
-  rnMajorVersion: string,
-) {
-  if (
-    semver.major(semver.coerce(appMajorVersion)) <
-    semver.major(semver.coerce(rnMajorVersion))
-  ) {
-    throw new Error(
-      `iOS deployment target version is ${appMajorVersion} and it should be minimum ${rnMajorVersion}. Please upgrade your iOS version before continuing.`,
-    );
-  }
-}
-
-async function getAndroidCompileSdkVersion(projectRoot: string) {
-  const appBuildGradlePath = path.join(
-    projectRoot,
-    'android',
-    'app',
-    'build.gradle',
-  );
-
-  if (!fs.existsSync(appBuildGradlePath)) {
-    throw new Error('app-level build.gradle file not found');
-  }
-
-  const buildGradle = await g2js.parseFile(appBuildGradlePath);
-  return buildGradle.android.compileSdkVersion;
-}
-
-function getMinimumSupportedVersion(minDeploymentTarget: string) {
-  for (const version of Object.keys(IOS_DEPLOYMENT_TARGETS_RN_VERSIONS)) {
-    const v1 = semver.coerce(minDeploymentTarget) as SemVer;
-    const v2 = semver.coerce(version) as SemVer;
-
-    if (semver.compare(v1, v2) === 1) {
-      return {...v2, original: version};
-    }
-  }
-
-  return minDeploymentTarget;
-}
-
-async function promptForIosReactNativeVersion(
-  minDeploymentTarget: keyof typeof IOS_DEPLOYMENT_TARGETS_RN_VERSIONS,
-) {
-  const {version} = await prompts({
-    type: 'select',
-    name: 'version',
-    message: 'Select a React Native version compatible with your iOS project',
-    choices: IOS_DEPLOYMENT_TARGETS_RN_VERSIONS[minDeploymentTarget].map(
-      (v) => ({
-        title: v,
-        value: v,
-      }),
-    ),
-  });
-
-  return version;
-}
-
-async function promptForAndroidReactNativeVersion(
-  minDeploymentTarget: keyof typeof ANDROID_COMPILE_SDK_VERSIONS,
-) {
-  const {version} = await prompts({
-    type: 'select',
-    name: 'version',
-    message:
-      'Select a React Native version compatible with your Android project',
-    choices: ANDROID_COMPILE_SDK_VERSIONS[minDeploymentTarget].map((v) => ({
-      title: v,
-      value: v,
-    })),
-  });
-
-  return version;
-}
-
 async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
   if (ctx) {
     throw new CLIError('This command can only be run outside of a project.');
@@ -318,7 +212,13 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
   let rnVersion: string | undefined;
 
   if (args.platform === 'android') {
-    const compileSdkVersion = await getAndroidCompileSdkVersion(projectRoot);
+    const appLevelBuildGradlePath = await promptForAndroidAppPath();
+    const androidManifestPath = await promptForAndroidManifestPath();
+    console.log({appLevelBuildGradlePath, androidManifestPath});
+    const compileSdkVersion = await getAndroidCompileSdkVersion(
+      projectRoot,
+      appLevelBuildGradlePath,
+    );
     if (
       !Object.keys(ANDROID_COMPILE_SDK_VERSIONS).includes(compileSdkVersion)
     ) {
@@ -329,6 +229,11 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
       rnVersion = ANDROID_COMPILE_SDK_VERSIONS[compileSdkVersion][0];
     } else {
       rnVersion = await promptForAndroidReactNativeVersion(compileSdkVersion);
+
+      if (rnVersion === 'other') {
+        rnVersion = promptForCustomReactNativeVersion();
+        //TODO: semver check of the version
+      }
     }
   }
 
@@ -339,9 +244,7 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
 
     loader.start('Checking iOS deployment target...');
     const minDeploymentTarget = await getMinDeploymentTarget(projectRoot);
-    const minSupportedRnTarget = getMinimumSupportedVersion(
-      minDeploymentTarget,
-    );
+    const minSupportedRnTarget = getMinIosSupportedVersion(minDeploymentTarget);
     compareDeploymentTargets(
       minDeploymentTarget,
       MIN_SUPPORTED_IOS_DEPLOYMENT_TARGET,

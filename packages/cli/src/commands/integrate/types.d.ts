@@ -502,3 +502,12 @@ declare module 'xcode/lib/pbxFile' {
     target?: string;
   }
 }
+
+declare module 'gradle-to-js/lib/parser' {
+  interface GradleToJs {
+    parseFile(path: string): Promise<any>;
+  }
+
+  const g2js: GradleToJs;
+  export default g2js;
+}
