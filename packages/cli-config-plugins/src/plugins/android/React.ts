@@ -33,7 +33,7 @@ export const withReactPlugin: ConfigPlugin<AndroidDefaultPluginsProps> = (
         //@ts-ignore
         appBuildGradle.contents = appBuildGradle.contents.replace(
           'plugins {',
-          "plugins {\n\t'com.facebook.react'",
+          "plugins {\n\tid 'com.facebook.react'",
         );
       } else {
         appBuildGradle.contents = appBuildGradle.contents.replace(

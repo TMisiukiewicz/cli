@@ -49,7 +49,7 @@ export const withReactNativeGradlePlugin: ConfigPlugin = (config) => {
     } else {
       newConfig.modResults.contents = newConfig.modResults.contents.replace(
         /^/,
-        'buildscript {\n\tdependencies {\n\t\tclasspath("com.facebook.react:react-native-gradle-plugin")\n}',
+        'buildscript {\n\tdependencies {\n\t\tclasspath("com.facebook.react:react-native-gradle-plugin")\n}\n}',
       );
     }
 
