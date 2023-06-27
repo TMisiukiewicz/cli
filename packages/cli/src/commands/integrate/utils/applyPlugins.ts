@@ -11,6 +11,7 @@ import {withIosDefaultPlugins} from '../plugins/withIosDefaultPlugins';
 interface PluginsConfig {
   rnVersion: string;
   manifestPath: string;
+  appLevelBuildGradlePath: string;
 }
 
 const applyPlugins = async (
@@ -29,6 +30,7 @@ const applyPlugins = async (
     config = withAndroidDefaultPlugins(config, {
       isJscEnabled: semver.minor(`${rnVersion}.0`) < 71,
       manifestPath: rest.manifestPath,
+      appLevelBuildGradlePath: rest.appLevelBuildGradlePath,
     });
     config = withIosDefaultPlugins(config);
 

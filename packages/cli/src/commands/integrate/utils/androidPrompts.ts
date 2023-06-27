@@ -24,23 +24,27 @@ export async function promptForAndroidReactNativeVersion(
   return version;
 }
 
-export async function promptForAndroidAppPath(): Promise<string> {
+export async function promptForAndroidAppPath(
+  defaultValue: string,
+): Promise<string> {
   const {path} = await prompts({
     type: 'text',
     name: 'path',
     message: 'Please enter the path to your app-level build.gradle file',
-    initial: 'android/app/build.gradle',
+    initial: defaultValue,
   });
 
   return path;
 }
 
-export async function promptForAndroidManifest(): Promise<string> {
+export async function promptForAndroidManifestPath(
+  defaultValue: string,
+): Promise<string> {
   const {path} = await prompts({
     type: 'text',
     name: 'path',
     message: 'Please enter the path to your AndroidManifest.xml file',
-    initial: 'android/app/src/main/AndroidManifest.xml',
+    initial: defaultValue,
   });
 
   return path;

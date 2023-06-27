@@ -1,7 +1,6 @@
 //@ts-nocheck
 import {CLIError, getLoader} from '@react-native-community/cli-tools';
 import {Config} from '@react-native-community/cli-types';
-import loadConfig from '@react-native-community/cli-config';
 import path from 'path';
 import prompts from 'prompts';
 import fs from 'fs-extra';
@@ -10,7 +9,6 @@ import {Ora} from 'ora';
 import applyPlugins from './utils/applyPlugins';
 import copyEntryFiles from './utils/copyEntryFiles';
 import {
-  promptForAndroidReactNativeVersion,
   promptForAndroidAppPath,
   promptForAndroidManifestPath,
   promptForCustomReactNativeVersion,
@@ -19,10 +17,8 @@ import {promptForIosReactNativeVersion} from './utils/iosPrompts';
 import getMinDeploymentTarget from './utils/getMinDeploymentTarget';
 import getMinIosSupportedVersion from './utils/getMinIosSupportedVersion';
 import compareDeploymentTargets from './utils/compareDeploymentTargets';
-import getAndroidCompileSdkVersion from './utils/getAndroidCompileSdkVersion';
 import {
   IOS_DEPLOYMENT_TARGETS_RN_VERSIONS,
-  ANDROID_COMPILE_SDK_VERSIONS,
   MIN_SUPPORTED_IOS_DEPLOYMENT_TARGET,
 } from './consts';
 
@@ -209,32 +205,18 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
     );
   }
 
+  let appLevelBuildGradlePath = 'android/app/build.gradle';
+  let androidManifestPath = 'android/app/src/main/AndroidManifest.xml';
   let rnVersion: string | undefined;
 
   if (args.platform === 'android') {
-    const appLevelBuildGradlePath = await promptForAndroidAppPath();
-    const androidManifestPath = await promptForAndroidManifestPath();
-    console.log({appLevelBuildGradlePath, androidManifestPath});
-    const compileSdkVersion = await getAndroidCompileSdkVersion(
-      projectRoot,
+    appLevelBuildGradlePath = await promptForAndroidAppPath(
       appLevelBuildGradlePath,
     );
-    if (
-      !Object.keys(ANDROID_COMPILE_SDK_VERSIONS).includes(compileSdkVersion)
-    ) {
-      throw new CLIError(
-        'Your compile SDK version is not supported. Please upgrade your Android version before continuing.',
-      );
-    } else if (ANDROID_COMPILE_SDK_VERSIONS[compileSdkVersion].length === 1) {
-      rnVersion = ANDROID_COMPILE_SDK_VERSIONS[compileSdkVersion][0];
-    } else {
-      rnVersion = await promptForAndroidReactNativeVersion(compileSdkVersion);
-
-      if (rnVersion === 'other') {
-        rnVersion = promptForCustomReactNativeVersion();
-        //TODO: semver check of the version
-      }
-    }
+    androidManifestPath = await promptForAndroidManifestPath(
+      androidManifestPath,
+    );
+    rnVersion = await promptForCustomReactNativeVersion();
   }
 
   if (args.platform === 'ios') {
@@ -274,7 +256,6 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
   loader.start('Adding required dependencies...');
   await resolvePackageJson(projectRoot, args);
   await addDependencies(projectRoot, {...args, version: rnVersion}, loader);
-  const config = loadConfig();
   await resolveGitignore(projectRoot);
   loader.succeed();
 
@@ -285,7 +266,8 @@ async function integrate(_: Array<string>, ctx: Config, args: IntegrateArgs) {
 
   await applyPlugins(projectRoot, platform, loader, {
     rnVersion,
-    manifestPath: config.project.android.manifestPath,
+    manifestPath: androidManifestPath,
+    appLevelBuildGradlePath,
   });
   copyEntryFiles(projectRoot);
 }

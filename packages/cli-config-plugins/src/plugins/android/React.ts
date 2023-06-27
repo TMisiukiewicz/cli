@@ -1,66 +1,103 @@
 import {
+  AndroidConfig,
   ConfigPlugin,
-  withAppBuildGradle,
+  withDangerousMod,
   withProjectBuildGradle,
 } from '@expo/config-plugins';
+import fs from 'fs-extra';
 
-export const withReactPlugin: ConfigPlugin = (config) => {
-  config = withAppBuildGradle(config, (newConfig) => {
-    const pluginsObjExists = newConfig.modResults.contents.includes(
-      'plugins {',
-    );
-    const dependenciesExists = newConfig.modResults.contents.includes(
-      'dependencies {',
-    );
+interface AndroidDefaultPluginsProps {
+  appLevelBuildGradlePath: string;
+}
 
-    if (pluginsObjExists) {
-      newConfig.modResults.contents = newConfig.modResults.contents.replace(
-        'plugins {',
-        "plugins {\n\t'com.facebook.react'",
-      );
-    } else {
-      newConfig.modResults.contents = newConfig.modResults.contents.replace(
-        /^/,
-        'apply plugin: "com.facebook.react"\n',
-      );
-    }
+export const withReactPlugin: ConfigPlugin<AndroidDefaultPluginsProps> = (
+  config,
+  {appLevelBuildGradlePath},
+) => {
+  config = withDangerousMod(config, [
+    'android',
+    async (conf) => {
+      const filePath =
+        appLevelBuildGradlePath ||
+        AndroidConfig.Paths.getAppBuildGradleFilePath(
+          conf.modRequest.projectRoot,
+        );
 
-    if (dependenciesExists) {
-      newConfig.modResults.contents = newConfig.modResults.contents.replace(
+      const appBuildGradle = AndroidConfig.Paths.getFileInfo(filePath);
+      const pluginsObjExists = appBuildGradle.contents.includes('plugins {');
+      const dependenciesExists = appBuildGradle.contents.includes(
         'dependencies {',
-        'dependencies {\n\timplementation "com.facebook.react:react-android"\n\timplementation "com.facebook.react:hermes-android"',
       );
-    } else {
-      newConfig.modResults.contents = newConfig.modResults.contents.replace(
-        /[\r\n]+$/,
-        `
-        dependencies {
-            implementation "com.facebook.react:react-android"
-            implementation "com.facebook.react:hermes-android"
-        }`,
-      );
-    }
-    return newConfig;
-  });
+
+      if (pluginsObjExists) {
+        //@ts-ignore
+        appBuildGradle.contents = appBuildGradle.contents.replace(
+          'plugins {',
+          "plugins {\n\t'com.facebook.react'",
+        );
+      } else {
+        appBuildGradle.contents = appBuildGradle.contents.replace(
+          /^/,
+          'apply plugin: "com.facebook.react"\n',
+        );
+      }
+
+      if (dependenciesExists) {
+        appBuildGradle.contents = appBuildGradle.contents.replace(
+          'dependencies {',
+          'dependencies {\n\timplementation "com.facebook.react:react-android"\n\timplementation "com.facebook.react:hermes-android"',
+        );
+      } else {
+        appBuildGradle.contents = appBuildGradle.contents.replace(
+          /[\r\n]+$/,
+          `
+            dependencies {
+                implementation "com.facebook.react:react-android"
+                implementation "com.facebook.react:hermes-android"
+            }`,
+        );
+      }
+
+      fs.writeFileSync(filePath, appBuildGradle.contents, {encoding: 'utf-8'});
+
+      return conf;
+    },
+  ]);
 
   return config;
 };
 
-export const withJscReactPlugin: ConfigPlugin = (config) => {
-  config = withAppBuildGradle(config, (newConfig) => {
-    const dependenciesExists = newConfig.modResults.contents.includes(
-      'dependencies {',
-    );
+export const withJscReactPlugin: ConfigPlugin<AndroidDefaultPluginsProps> = (
+  config,
+  {appLevelBuildGradlePath},
+) => {
+  config = withDangerousMod(config, [
+    'android',
+    async (conf) => {
+      const filePath =
+        appLevelBuildGradlePath ||
+        AndroidConfig.Paths.getAppBuildGradleFilePath(
+          conf.modRequest.projectRoot,
+        );
 
-    if (dependenciesExists) {
-      newConfig.modResults.contents = newConfig.modResults.contents.replace(
+      const appBuildGradle = AndroidConfig.Paths.getFileInfo(filePath);
+
+      const dependenciesExists = appBuildGradle.contents.includes(
         'dependencies {',
-        'dependencies {\n\timplementation "com.facebook.react:react-native:+"\n\timplementation "org.webkit:android-jsc:+"',
       );
-    }
 
-    return newConfig;
-  });
+      if (dependenciesExists) {
+        appBuildGradle.contents = appBuildGradle.contents.replace(
+          'dependencies {',
+          'dependencies {\n\timplementation "com.facebook.react:react-native:+"\n\timplementation "org.webkit:android-jsc:+"',
+        );
+      }
+
+      fs.writeFileSync(filePath, appBuildGradle.contents, {encoding: 'utf-8'});
+
+      return conf;
+    },
+  ]);
 
   config = withProjectBuildGradle(config, (newConfig) => {
     const pattern = /allprojects\s*\{[\t\n\r\s]*repositories\s*\{/s;
