@@ -21,6 +21,7 @@ import {
   isPackagerRunning,
   logAlreadyRunningBundler,
   handlePortUnavailable,
+  checkTransitiveDependencies,
 } from '@react-native-community/cli-tools';
 import {BuildFlags, buildProject} from '../buildIOS/buildProject';
 import {iosBuildOptions} from '../buildIOS';
@@ -86,6 +87,10 @@ async function runIOS(_: Array<string>, ctx: Config, args: FlagsT) {
     throw new CLIError(
       'iOS project folder not found. Are you sure this is a React Native project?',
     );
+  }
+
+  if (args.dependencyCheck) {
+    await checkTransitiveDependencies();
   }
 
   const {xcodeProject, sourceDir} = ctx.project.ios;

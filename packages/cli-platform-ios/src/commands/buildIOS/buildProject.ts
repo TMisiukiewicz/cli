@@ -20,6 +20,7 @@ export type BuildFlags = {
   interactive?: boolean;
   destination?: string;
   extraParams?: string[];
+  dependencyCheck?: boolean;
 };
 
 export function buildProject(

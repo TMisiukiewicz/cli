@@ -9,7 +9,11 @@
 import path from 'path';
 import chalk from 'chalk';
 import {Config} from '@react-native-community/cli-types';
-import {logger, CLIError} from '@react-native-community/cli-tools';
+import {
+  logger,
+  CLIError,
+  checkTransitiveDependencies,
+} from '@react-native-community/cli-tools';
 import {Device} from '../../types';
 import {BuildFlags, buildProject} from './buildProject';
 import {getDestinationSimulator} from '../../tools/getDestinationSimulator';
@@ -39,6 +43,10 @@ async function buildIOS(_: Array<string>, ctx: Config, args: FlagsT) {
     throw new CLIError(
       `Could not find Xcode project files in "${sourceDir}" folder`,
     );
+  }
+
+  if (args.dependencyCheck) {
+    await checkTransitiveDependencies();
   }
 
   process.chdir(sourceDir);
@@ -235,6 +243,11 @@ export const iosBuildOptions = [
   {
     name: '--target <string>',
     description: 'Explicitly set Xcode target to use.',
+  },
+  {
+    name: '--dependency-check',
+    description:
+      'Check if there are any transitive dependencies containing native code that are not declared as a direct dependency in your package.json.',
   },
 ];
 

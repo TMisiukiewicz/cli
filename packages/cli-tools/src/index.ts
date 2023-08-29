@@ -17,6 +17,6 @@ export * as link from './doclink';
 export {default as startServerInNewWindow} from './startServerInNewWindow';
 export {default as handlePortUnavailable} from './handlePortUnavailable';
 export * from './port';
-export * as transitiveDeps from './resolveTransitiveDeps';
+export {default as checkTransitiveDependencies} from './resolveTransitiveDeps';
 
 export * from './errors';
