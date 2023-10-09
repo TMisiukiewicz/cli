@@ -56,3 +56,18 @@ export async function promptForDeviceSelection(
   });
   return device;
 }
+
+export async function promptForPodfileSelection(podfiles: string[]) {
+  const {podfile} = await prompts({
+    name: 'podfile',
+    type: 'select',
+    message:
+      'Multiple Podfiles were found. Please select a Podfile you want to use. You can also set a path manually using "project.ios.sourceDir". You can learn more about it here: https://github.com/react-native-community/cli/blob/main/docs/configuration.md',
+    choices: podfiles.map((value) => ({
+      title: value,
+      value: value,
+    })),
+  });
+
+  return podfile;
+}

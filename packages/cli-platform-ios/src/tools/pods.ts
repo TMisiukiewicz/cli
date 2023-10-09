@@ -63,7 +63,7 @@ export default async function resolvePods(
   options?: ResolvePodsOptions,
 ) {
   const packageJson = getPackageJson(root);
-  const podfilePath = findPodfilePath(root);
+  const podfilePath = await findPodfilePath(root);
   const iosFolderPath = podfilePath
     ? podfilePath.slice(0, podfilePath.lastIndexOf('/'))
     : path.join(root, 'ios');

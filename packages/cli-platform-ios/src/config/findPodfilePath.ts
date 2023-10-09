@@ -6,9 +6,9 @@
  *
  */
 
-import {inlineString, logger} from '@react-native-community/cli-tools';
 import path from 'path';
 import findAllPodfilePaths from './findAllPodfilePaths';
+import {promptForPodfileSelection} from '../tools/prompts';
 
 // Regexp matching all test projects
 const TEST_PROJECTS = /test|example|sample/i;
@@ -19,7 +19,7 @@ const IOS_BASE = 'ios';
 // Podfile in the bundle package
 const BUNDLE_VENDORED_PODFILE = 'vendor/bundle/ruby';
 
-export default function findPodfilePath(cwd: string) {
+export default async function findPodfilePath(cwd: string) {
   const podfiles = findAllPodfilePaths(cwd)
     /**
      * Then, we will run a simple test to rule out most example projects,
@@ -51,13 +51,9 @@ export default function findPodfilePath(cwd: string) {
 
   if (podfiles.length > 0) {
     if (podfiles.length > 1) {
-      logger.warn(
-        inlineString(`
-          Multiple Podfiles were found: ${podfiles}. Choosing ${podfiles[0]} automatically.
-          If you would like to select a different one, you can configure it via "project.ios.sourceDir".
-          You can learn more about it here: https://github.com/react-native-community/cli/blob/main/docs/configuration.md
-        `),
-      );
+      const podfile = await promptForPodfileSelection(podfiles);
+
+      return path.join(cwd, podfile);
     }
     return path.join(cwd, podfiles[0]);
   }
