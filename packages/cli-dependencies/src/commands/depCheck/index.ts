@@ -3,21 +3,6 @@ import * as fs from 'fs';
 import * as path from 'path';
 import chalk from 'chalk';
 
-interface PackageJson {
-  peerDependencies?: {[key: string]: string};
-  dependencies?: {[key: string]: string};
-  devDependencies?: {[key: string]: string};
-}
-
-function readPackageJson(dir: string): PackageJson | null {
-  const filePath = path.join(dir, 'package.json');
-  if (fs.existsSync(filePath)) {
-    const data = fs.readFileSync(filePath, 'utf-8');
-    return JSON.parse(data);
-  }
-  return null;
-}
-
 function getPeerDependencies(
   dir: string,
   collectedDeps = new Set<{name: string; parent: string}>(),
