@@ -78,6 +78,12 @@ async function add([packageName]: Array<string>) {
       } catch {
         peersInstallLoader.fail();
       }
+    } else {
+      logger.warn(
+        `Peer dependencies were not installed. Please install them manually using ${chalk.bold(
+          `yarn add ${requiredPeersToInstall.join(' ')}`,
+        )}.`,
+      );
     }
   }
 }

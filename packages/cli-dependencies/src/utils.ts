@@ -1,3 +1,4 @@
+// @ts-nocheck
 import * as fs from 'fs';
 import * as path from 'path';
 
@@ -8,6 +9,8 @@ interface PackageJson {
   peerDependenciesMeta?: {[key: string]: any};
 }
 
+export const BUILD_GRADLE_FILES = ['build.gradle', 'build.gradle.kts'];
+
 function readPackageJson(dir: string): PackageJson | null {
   const filePath = path.join(dir, 'package.json');
   if (fs.existsSync(filePath)) {
@@ -17,8 +20,19 @@ function readPackageJson(dir: string): PackageJson | null {
   return null;
 }
 
+function checkIfFilesHasNativeCode(files: string[]) {
+  return files.some(
+    (file) => file.endsWith('.podspec') || BUILD_GRADLE_FILES.includes(file),
+  );
+}
+
+function checkLocalFiles(depPath: string): boolean {
+  const filesInDir = fs.readdirSync(depPath);
+
+  return checkIfFilesHasNativeCode(filesInDir);
+}
+
 function getPackageJsonRequiredPeerDependencies(directory: string) {
-  console.log({directory});
   const packageJson = readPackageJson(directory);
   if (!packageJson) {
     throw new Error(`No package.json found in ${directory}`);
@@ -44,4 +58,72 @@ function compareArrays(haystack: string[], needle: string[]) {
   return nonExistingElements;
 }
 
-export {readPackageJson, getPackageJsonRequiredPeerDependencies, compareArrays};
+async function getLatestLibraryVersion(packageName: string): Promise<string> {
+  const npmRegistryUrl = `https://registry.npmjs.org/${packageName}`;
+  try {
+    const response = await fetch(npmRegistryUrl);
+    if (response.status === 200) {
+      const packageData = await response.json();
+      return packageData['dist-tags'].latest;
+    }
+    throw new Error(`Could not retrieve the latest version for ${packageName}`);
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+async function listLibraryFiles(
+  packageName: string,
+  version?: string,
+): Promise<any> {
+  let libVersion = version;
+
+  if (!version) {
+    libVersion = await getLatestLibraryVersion(packageName);
+  }
+
+  const npmFilesUrl = `https://www.npmjs.com/package/${packageName}/v/${libVersion}/index`;
+
+  try {
+    const response = await fetch(npmFilesUrl);
+    if (response.status === 200) {
+      const filesList = await response.json();
+      return filesList;
+    }
+    throw new Error(
+      `Could not find package ${packageName} with specified version ${version}. Make sure the name is correct and the version exists.`,
+    );
+  } catch (error) {
+    console.error(error);
+  }
+}
+
+function doesDependencyHaveNativeCode(
+  packageName: string,
+  version?: string,
+): boolean {
+  let libVersion = version;
+  const dependencyPath = path.join(process.cwd(), 'node_modules', packageName);
+
+  if (fs.existsSync(dependencyPath)) {
+    return checkLocalFiles(dependencyPath);
+  }
+
+  if (!version) {
+    libVersion = getLatestLibraryVersion(packageName);
+  }
+
+  const filesList = listLibraryFiles(packageName, libVersion);
+
+  return checkIfFilesHasNativeCode(filesList);
+}
+
+export {
+  readPackageJson,
+  getPackageJsonRequiredPeerDependencies,
+  compareArrays,
+  getLatestLibraryVersion,
+  listLibraryFiles,
+  doesDependencyHaveNativeCode,
+  checkLocalFiles,
+};

@@ -2,6 +2,12 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import chalk from 'chalk';
+import {
+  BUILD_GRADLE_FILES,
+  checkLocalFiles,
+  getLatestLibraryVersion,
+  readPackageJson,
+} from '../../utils';
 
 function getPeerDependencies(
   dir: string,
@@ -39,7 +45,7 @@ async function getFiles(packageName: string, version?: string): Promise<any> {
   let libVersion = version;
 
   if (!version) {
-    libVersion = await getLatestVersion(packageName);
+    libVersion = await getLatestLibraryVersion(packageName);
   }
 
   const npmFilesUrl = `https://www.npmjs.com/package/${packageName}/v/${libVersion}/index`;
@@ -58,30 +64,6 @@ async function getFiles(packageName: string, version?: string): Promise<any> {
   }
 }
 
-async function getLatestVersion(packageName: string): Promise<string> {
-  const npmRegistryUrl = `https://registry.npmjs.org/${packageName}`;
-  try {
-    const response = await fetch(npmRegistryUrl);
-    if (response.status === 200) {
-      const packageData = await response.json();
-      return packageData['dist-tags'].latest;
-    }
-    throw new Error(`Could not retrieve the latest version for ${packageName}`);
-  } catch (error) {
-    console.error(error);
-  }
-}
-
-const androidFiles = ['build.gradle', 'build.gradle.kts'];
-
-function checkLocalFiles(depPath: string): boolean {
-  const filesInDir = fs.readdirSync(depPath);
-
-  return filesInDir.some(
-    (file) => file.endsWith('.podspec') || androidFiles.includes(file),
-  );
-}
-
 async function checkPeerDependencies(dir: string) {
   const packageJson = readPackageJson(dir);
   const peerDependencies = getPeerDependencies(dir);
@@ -95,7 +77,8 @@ async function checkPeerDependencies(dir: string) {
       if (files) {
         const fileNames = Object.keys(files.files);
         const hasNativeCode = fileNames.some(
-          (file) => file.endsWith('.podspec') || androidFiles.includes(file),
+          (file) =>
+            file.endsWith('.podspec') || BUILD_GRADLE_FILES.includes(file),
         );
 
         if (hasNativeCode) {
